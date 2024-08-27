@@ -72,6 +72,7 @@ pub const TOKEN_TAG: &[u8] = b"Token";
 pub const NFT_TAG: &[u8] = b"NFT";
 
 mod tests {
+    use anyhow::{ensure, Context};
     use byteorder::{ByteOrder, LittleEndian};
     use itertools::Itertools;
 
@@ -87,10 +88,11 @@ mod tests {
     pub fn zk_meme_token_policy(
         self_state_key: &StateKey,
         ins: &[Utxo],
+        refs: &[Utxo],
         outs: &[Utxo],
         x: &Data,
         w: &Data,
-    ) -> Result<bool> {
+    ) -> Result<()> {
         assert_eq!(self_state_key.tag, TOKEN_TAG);
 
         let in_amount = sum_token_amount(self_state_key, ins)?;
@@ -99,7 +101,9 @@ mod tests {
         // is_meme_token_creator is a function that checks that
         // the spender is the creator of this meme token.
         // In our policy, the token creator can mint and burn tokens at will.
-        Ok(in_amount == out_amount || is_meme_token_creator(x, w)?)
+        assert!(in_amount == out_amount || is_meme_token_creator(x, w)?);
+
+        Ok(())
     }
 
     fn sum_token_amount(self_state_key: &StateKey, utxos: &[Utxo]) -> Result<u64> {
@@ -119,7 +123,8 @@ mod tests {
     fn is_meme_token_creator(x: &Data, w: &Data) -> Result<bool> {
         // TODO should be a real public key instead of a bunch of zeros
         const CREATOR_PUBLIC_KEY: [u8; 64] = [0u8; 64];
-        todo!("check the signature in the witness against CREATOR_PUBLIC_KEY")
+        // todo!("check the signature in the witness against CREATOR_PUBLIC_KEY")
+        Ok(false)
     }
 
     impl TryFrom<&Data> for String {
@@ -133,10 +138,11 @@ mod tests {
     pub fn spender_owns_email_contract(
         self_state_key: &StateKey,
         ins: &[Utxo],
+        refs: &[Utxo],
         outs: &[Utxo],
         x: &Data,
         w: &Data,
-    ) -> Result<bool> {
+    ) -> Result<()> {
         // Make sure the spender owns the email addresses in the input UTXOs.
         for utxo in ins {
             // Retrieve the state for this zkapp.
@@ -149,9 +155,7 @@ mod tests {
                 // If the state is not even a string, the UTXO is invalid.
                 let email: String = state.try_into()?;
                 // Check if the spender owns the email address.
-                if !owns_email(&email, x, w)? {
-                    return Ok(false);
-                }
+                ensure!(owns_email(&email, x, w)?);
             }
         }
 
@@ -164,13 +168,11 @@ mod tests {
                 // for this to work.
                 let email: String = state.try_into()?;
                 // Check if the email address is valid XD
-                if !email.contains('@') {
-                    return Ok(false);
-                }
+                ensure!(email.contains('@'));
             }
         }
 
-        Ok(true)
+        Ok(())
     }
 
     fn owns_email(email: &str, x: &Data, w: &Data) -> Result<bool> {
@@ -187,25 +189,36 @@ mod tests {
         }
     }
 
-    pub fn rollup_validator(ins: &[Utxo], outs: &[Utxo], x: &Data, w: &Data) -> Result<bool> {
-        Ok(true)
+    pub fn rollup_validator(
+        self_state_key: &StateKey,
+        ins: &[Utxo],
+        refs: &[Utxo],
+        outs: &[Utxo],
+        x: &Data,
+        w: &Data,
+    ) -> Result<()> {
+        todo!()
     }
 
     #[test]
     fn test_zk_meme_token_validator() {
+        let token_state_key = StateKey {
+            tag: TOKEN_TAG,
+            prefix: vec![],
+            vk_hash: [0u8; 32],
+        };
+
         let ins = vec![Utxo {
             id: Some(UtxoId::empty()),
             amount: 1,
-            state: BTreeMap::new(),
+            state: BTreeMap::from([(token_state_key.clone(), Data::new(Box::new(1u64.to_le_bytes())))]),
         }];
         let outs = vec![Utxo {
             id: None,
             amount: 1,
-            state: BTreeMap::new(),
+            state: BTreeMap::from([(token_state_key.clone(), Data::new(Box::new(1u64.to_le_bytes())))]),
         }];
-        assert_eq!(
-            zk_meme_token_policy(&StateKey::default(), &ins, &outs, &Data::empty(), &Data::empty()).unwrap(),
-            true
-        );
+
+        assert!(zk_meme_token_policy(&token_state_key, &ins, &[], &outs, &Data::empty(), &Data::empty()).is_ok());
     }
 }
