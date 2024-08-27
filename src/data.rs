@@ -11,15 +11,15 @@ pub type Witness = BTreeMap<StateKey, WitnessData>;
 
 // App UTXO as presented to the validation predicate.
 pub struct Utxo {
-    id: Option<UtxoId>,
-    amount: u64,
-    state: BTreeMap<StateKey, StateValue>,
+    pub id: Option<UtxoId>,
+    pub amount: u64,
+    pub state: BTreeMap<StateKey, StateValue>,
 }
 
 #[derive(Eq, PartialEq, Hash, Default, Clone, Debug)]
 struct UtxoId {
-    txid: TxId,
-    vout: u32,
+    pub txid: TxId,
+    pub vout: u32,
 }
 
 impl UtxoId {
@@ -46,6 +46,7 @@ pub type StateValue = Data;
 
 type TxId = [u8; 32];
 
+#[derive(Clone)]
 pub struct WitnessData {
     pub proof: Data, // TODO real proof type
     pub public_input: Data,
@@ -53,8 +54,9 @@ pub struct WitnessData {
 
 pub type VkHash = [u8; 32];
 
+#[derive(Clone)]
 pub struct Data {
-    data: Box<[u8]>,
+    pub data: Box<[u8]>,
 }
 
 impl Data {
@@ -85,18 +87,11 @@ mod tests {
         }
     }
 
-    pub fn zk_meme_token_policy(
-        self_state_key: &StateKey,
-        ins: &[Utxo],
-        refs: &[Utxo],
-        outs: &[Utxo],
-        x: &Data,
-        w: &Data,
-    ) -> Result<()> {
+    pub fn zk_meme_token_policy(self_state_key: &StateKey, tx: &Transaction, x: &Data, w: &Data) -> Result<()> {
         assert_eq!(self_state_key.tag, TOKEN_TAG);
 
-        let in_amount = sum_token_amount(self_state_key, ins)?;
-        let out_amount = sum_token_amount(self_state_key, outs)?;
+        let in_amount = sum_token_amount(self_state_key, &tx.ins)?;
+        let out_amount = sum_token_amount(self_state_key, &tx.outs)?;
 
         // is_meme_token_creator is a function that checks that
         // the spender is the creator of this meme token.
@@ -135,16 +130,9 @@ mod tests {
         }
     }
 
-    pub fn spender_owns_email_contract(
-        self_state_key: &StateKey,
-        ins: &[Utxo],
-        refs: &[Utxo],
-        outs: &[Utxo],
-        x: &Data,
-        w: &Data,
-    ) -> Result<()> {
+    pub fn spender_owns_email_contract(self_state_key: &StateKey, tx: &Transaction, x: &Data, w: &Data) -> Result<()> {
         // Make sure the spender owns the email addresses in the input UTXOs.
-        for utxo in ins {
+        for utxo in &tx.ins {
             // Retrieve the state for this zkapp.
             // OWN_VK_HASH (always zeroed out) refers to the current validator's
             // own VK hash in the UTXO (as presented to the validator).
@@ -160,7 +148,7 @@ mod tests {
         }
 
         // Make sure our own state in output UTXOs is an email address.
-        for utxo in outs {
+        for utxo in &tx.outs {
             // Again, we only care about UTXOs that have a state for the current
             // validator.
             if let Some(state) = utxo.state.get(self_state_key) {
@@ -189,14 +177,7 @@ mod tests {
         }
     }
 
-    pub fn rollup_validator(
-        self_state_key: &StateKey,
-        ins: &[Utxo],
-        refs: &[Utxo],
-        outs: &[Utxo],
-        x: &Data,
-        w: &Data,
-    ) -> Result<()> {
+    pub fn rollup_validator(self_state_key: &StateKey, tx: &Transaction, x: &Data, w: &Data) -> Result<()> {
         todo!()
     }
 
@@ -219,6 +200,12 @@ mod tests {
             state: BTreeMap::from([(token_state_key.clone(), Data::new(Box::new(1u64.to_le_bytes())))]),
         }];
 
-        assert!(zk_meme_token_policy(&token_state_key, &ins, &[], &outs, &Data::empty(), &Data::empty()).is_ok());
+        let tx = Transaction {
+            ins,
+            refs: vec![],
+            outs,
+        };
+
+        assert!(zk_meme_token_policy(&token_state_key, &tx, &Data::empty(), &Data::empty()).is_ok());
     }
 }
