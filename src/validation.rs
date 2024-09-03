@@ -1,5 +1,5 @@
-use crate::data::{Data, StateKey, Transaction, Witness};
 use anyhow::{anyhow, Result};
+use app_utxo_data::{Data, StateKey, Transaction, Witness};
 use std::collections::BTreeSet;
 
 pub fn validate(tx: Transaction, witness: Witness) -> Result<()> {
@@ -7,17 +7,17 @@ pub fn validate(tx: Transaction, witness: Witness) -> Result<()> {
         .ins
         .iter()
         .chain(tx.outs.iter())
-        .map(|utxo| utxo.state.keys())
+        .map(|utxo| utxo.state.iter().map(|(k, _)| k))
         .flatten()
         .collect::<BTreeSet<_>>();
 
-    for key in state_keys {
+    for state_key in state_keys {
         let witness_data = witness
-            .get(key)
-            .ok_or_else(|| anyhow!("WitnessData missing for key {:?}", key))?;
+            .get(state_key)
+            .ok_or_else(|| anyhow!("WitnessData missing for key {:?}", state_key))?;
 
         let proof = WrappedProof::from(&witness_data.proof);
-        proof.verify(key, &tx, &witness_data.public_input)?;
+        proof.verify(state_key, &tx, &witness_data.public_input)?;
     }
 
     Ok(())
