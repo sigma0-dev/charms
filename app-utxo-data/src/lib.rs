@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, io::Read};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Transaction {
@@ -10,18 +10,18 @@ pub struct Transaction {
     pub outs: Vec<Utxo>,
 }
 
-pub type Witness = BTreeMap<StateKey, WitnessData>;
+pub type Witness = BTreeMap<AppKey, WitnessData>;
 
 // App UTXO as presented to the validation predicate.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Utxo {
     pub id: Option<UtxoId>,
     pub amount: u64,
-    pub state: BTreeMap<StateKey, StateValue>,
+    pub state: BTreeMap<AppKey, AppData>,
 }
 
 impl Utxo {
-    pub fn get(&self, key: &StateKey) -> Option<&StateValue> {
+    pub fn get(&self, key: &AppKey) -> Option<&AppData> {
         self.state.get(key)
     }
 }
@@ -46,13 +46,13 @@ impl UtxoId {
 }
 
 #[derive(Eq, PartialEq, Hash, Ord, PartialOrd, Default, Clone, Debug, Serialize, Deserialize)]
-pub struct StateKey {
+pub struct AppKey {
     pub tag: Vec<u8>,
     pub prefix: Vec<u8>,
     pub vk_hash: VkHash,
 }
 
-pub type StateValue = Data;
+pub type AppData = Data;
 
 type TxId = [u8; 32];
 
@@ -65,17 +65,11 @@ pub struct WitnessData {
 pub type VkHash = [u8; 32];
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Data {
-    pub data: Box<[u8]>,
-}
+pub struct Data(pub Vec<u8>);
 
 impl Data {
-    pub fn new(data: Box<[u8]>) -> Self {
-        Self { data }
-    }
-
     pub fn empty() -> Self {
-        Self { data: Box::new([]) }
+        Self(vec![])
     }
 }
 
@@ -83,22 +77,27 @@ impl TryFrom<&Data> for u64 {
     type Error = anyhow::Error;
 
     fn try_from(value: &Data) -> Result<Self> {
-        if value.data.len() > 8 {
+        if value.0.len() > 8 {
             bail!("Data too long to convert to u64");
         }
-        let buf = value.data.iter().copied().pad_using(8, |_| 0).collect_vec();
-        Ok(u64::from_le_bytes(buf.try_into().unwrap()))
+        Ok(u64::from_le_bytes(value.clone().0.try_into().unwrap()))
+    }
+}
+
+impl From<u64> for Data {
+    fn from(value: u64) -> Self {
+        Self(value.to_le_bytes().to_vec())
     }
 }
 
 pub const TOKEN: &[u8] = b"Token";
 pub const NFT: &[u8] = b"NFT";
 
-pub fn sum_token_amount(self_state_key: &StateKey, utxos: &[Utxo]) -> Result<u64> {
+pub fn sum_token_amount(self_app_key: &AppKey, utxos: &[Utxo]) -> Result<u64> {
     let mut in_amount: u64 = 0;
     for utxo in utxos {
         // We only care about UTXOs that have our token.
-        if let Some(state) = utxo.get(self_state_key) {
+        if let Some(state) = utxo.get(self_app_key) {
             let utxo_amount: u64 = state.try_into()?;
             in_amount += utxo_amount;
         }
@@ -112,11 +111,11 @@ mod tests {
 
     use super::*;
 
-    pub fn zk_meme_token_policy(self_state_key: &StateKey, tx: &Transaction, x: &Data, w: &Data) -> Result<()> {
-        assert_eq!(self_state_key.tag, TOKEN);
+    pub fn zk_meme_token_policy(self_app_key: &AppKey, tx: &Transaction, x: &Data, w: &Data) -> Result<()> {
+        assert_eq!(self_app_key.tag, TOKEN);
 
-        let in_amount = sum_token_amount(self_state_key, &tx.ins)?;
-        let out_amount = sum_token_amount(self_state_key, &tx.outs)?;
+        let in_amount = sum_token_amount(self_app_key, &tx.ins)?;
+        let out_amount = sum_token_amount(self_app_key, &tx.outs)?;
 
         // is_meme_token_creator is a function that checks that
         // the spender is the creator of this meme token.
@@ -137,11 +136,11 @@ mod tests {
         type Error = anyhow::Error;
 
         fn try_from(data: &Data) -> std::result::Result<Self, Self::Error> {
-            Ok(String::from_utf8(data.data.to_vec())?)
+            Ok(String::from_utf8(data.0.to_vec())?)
         }
     }
 
-    pub fn spender_owns_email_contract(self_state_key: &StateKey, tx: &Transaction, x: &Data, w: &Data) -> Result<()> {
+    pub fn spender_owns_email_contract(self_app_key: &AppKey, tx: &Transaction, x: &Data, w: &Data) -> Result<()> {
         // Make sure the spender owns the email addresses in the input UTXOs.
         for utxo in &tx.ins {
             // Retrieve the state for this zkapp.
@@ -150,7 +149,7 @@ mod tests {
             // In an actual UTXO, the hash of the validator's VK is used instead.
             // Also, we only care about UTXOs that have a state for the current
             // validator.
-            if let Some(state) = utxo.get(self_state_key) {
+            if let Some(state) = utxo.get(self_app_key) {
                 // If the state is not even a string, the UTXO is invalid.
                 let email: String = state.try_into()?;
                 // Check if the spender owns the email address.
@@ -162,7 +161,7 @@ mod tests {
         for utxo in &tx.outs {
             // Again, we only care about UTXOs that have a state for the current
             // validator.
-            if let Some(state) = utxo.get(self_state_key) {
+            if let Some(state) = utxo.get(self_app_key) {
                 // There needs to be an `impl TryFrom<&Data> for String`
                 // for this to work.
                 let email: String = state.try_into()?;
@@ -188,13 +187,13 @@ mod tests {
         }
     }
 
-    pub fn rollup_validator(self_state_key: &StateKey, tx: &Transaction, x: &Data, w: &Data) -> Result<()> {
+    pub fn rollup_validator(self_app_key: &AppKey, tx: &Transaction, x: &Data, w: &Data) -> Result<()> {
         todo!()
     }
 
     #[test]
     fn test_zk_meme_token_validator() {
-        let token_state_key = StateKey {
+        let token_app_key = AppKey {
             tag: TOKEN.to_vec(),
             prefix: vec![],
             vk_hash: [0u8; 32],
@@ -203,12 +202,12 @@ mod tests {
         let ins = vec![Utxo {
             id: Some(UtxoId::empty()),
             amount: 1,
-            state: BTreeMap::from([(token_state_key.clone(), Data::new(Box::new(1u64.to_le_bytes())))]),
+            state: BTreeMap::from([(token_app_key.clone(), 1u64.into())]),
         }];
         let outs = vec![Utxo {
             id: None,
             amount: 1,
-            state: BTreeMap::from([(token_state_key.clone(), Data::new(Box::new(1u64.to_le_bytes())))]),
+            state: BTreeMap::from([(token_app_key.clone(), 1u64.into())]),
         }];
 
         let tx = Transaction {
@@ -217,6 +216,6 @@ mod tests {
             outs,
         };
 
-        assert!(zk_meme_token_policy(&token_state_key, &tx, &Data::empty(), &Data::empty()).is_ok());
+        assert!(zk_meme_token_policy(&token_app_key, &tx, &Data::empty(), &Data::empty()).is_ok());
     }
 }

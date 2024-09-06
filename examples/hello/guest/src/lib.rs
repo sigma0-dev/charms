@@ -1,13 +1,13 @@
 #![no_main]
 
-use app_utxo_data::{Data, StateKey, Transaction, Utxo, TOKEN};
+use app_utxo_data::{AppKey, Data, Transaction, Utxo, TOKEN};
 
 #[jolt::provable]
-pub fn zk_meme_token_policy(self_state_key: StateKey, tx: Transaction, x: Data, w: Data) {
-    assert_eq!(self_state_key.tag, TOKEN);
+pub fn zk_meme_token_policy(self_app_key: AppKey, tx: Transaction, x: Data, w: Data) {
+    assert_eq!(self_app_key.tag, TOKEN);
 
-    let in_amount = sum_token_amount(&self_state_key, &tx.ins);
-    let out_amount = sum_token_amount(&self_state_key, &tx.outs);
+    let in_amount = sum_token_amount(&self_app_key, &tx.ins);
+    let out_amount = sum_token_amount(&self_app_key, &tx.outs);
 
     // is_meme_token_creator is a function that checks that
     // the spender is the creator of this meme token.
@@ -15,11 +15,11 @@ pub fn zk_meme_token_policy(self_state_key: StateKey, tx: Transaction, x: Data, 
     assert!(in_amount == out_amount || is_meme_token_creator(&x, &w));
 }
 
-fn sum_token_amount(self_state_key: &StateKey, utxos: &[Utxo]) -> u64 {
+fn sum_token_amount(self_app_key: &AppKey, utxos: &[Utxo]) -> u64 {
     let mut in_amount: u64 = 0;
     for utxo in utxos {
         // We only care about UTXOs that have our token.
-        if let Some(state) = utxo.get(self_state_key) {
+        if let Some(state) = utxo.get(self_app_key) {
             // There needs to be an `impl TryFrom<&Data> for u64`
             // for this to work.
             let utxo_amount: u64 = state.try_into().expect("token state value should be a u64");
