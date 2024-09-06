@@ -1,7 +1,9 @@
 use app_utxo_data::{Data, StateKey, Transaction, Utxo, UtxoId, TOKEN};
+use jolt::{Jolt, RV32IJoltVM};
+use std::collections::BTreeMap;
 
 pub fn main() {
-    let (prove, verify) = guest::build_zk_meme_token_policy();
+    let (program, prep) = guest::preprocess_zk_meme_token_policy();
 
     let token_state_key = StateKey {
         tag: TOKEN.to_vec(),
@@ -12,12 +14,12 @@ pub fn main() {
     let ins = vec![Utxo {
         id: Some(UtxoId::empty()),
         amount: 1,
-        state: vec![(token_state_key.clone(), Data::new(Box::new(1u64.to_le_bytes())))],
+        state: BTreeMap::from([(token_state_key.clone(), Data::new(Box::new(1u64.to_le_bytes())))]),
     }];
     let outs = vec![Utxo {
         id: None,
         amount: 1,
-        state: vec![(token_state_key.clone(), Data::new(Box::new(1u64.to_le_bytes())))],
+        state: BTreeMap::from([(token_state_key.clone(), Data::new(Box::new(1u64.to_le_bytes())))]),
     }];
 
     let tx = Transaction {
@@ -26,8 +28,9 @@ pub fn main() {
         outs,
     };
 
-    let (output, proof) = prove(token_state_key, tx, Data::empty(), Data::empty());
-    let is_valid = verify(proof);
+    let (output, proof) =
+        guest::prove_zk_meme_token_policy(program, prep.clone(), token_state_key, tx, Data::empty(), Data::empty());
+    let is_valid = RV32IJoltVM::verify(prep, proof.proof, proof.commitments).is_ok();
 
     dbg!(output);
     dbg!(is_valid);

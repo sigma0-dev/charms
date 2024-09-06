@@ -3,20 +3,6 @@
 use app_utxo_data::{Data, StateKey, Transaction, Utxo, TOKEN};
 
 #[jolt::provable]
-fn fib(n: u32) -> u128 {
-    let mut a: u128 = 0;
-    let mut b: u128 = 1;
-    let mut sum: u128;
-    for _ in 1..n {
-        sum = a + b;
-        a = b;
-        b = sum;
-    }
-
-    b
-}
-
-#[jolt::provable]
 pub fn zk_meme_token_policy(self_state_key: StateKey, tx: Transaction, x: Data, w: Data) {
     assert_eq!(self_state_key.tag, TOKEN);
 
