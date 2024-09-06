@@ -1,4 +1,5 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -16,14 +17,12 @@ pub type Witness = BTreeMap<StateKey, WitnessData>;
 pub struct Utxo {
     pub id: Option<UtxoId>,
     pub amount: u64,
-    pub state: Vec<(StateKey, StateValue)>,
+    pub state: BTreeMap<StateKey, StateValue>,
 }
 
 impl Utxo {
     pub fn get(&self, key: &StateKey) -> Option<&StateValue> {
-        self.state
-            .iter()
-            .find_map(|(k, v)| if k == key { Some(v) } else { None })
+        self.state.get(key)
     }
 }
 
@@ -57,7 +56,7 @@ pub type StateValue = Data;
 
 type TxId = [u8; 32];
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WitnessData {
     pub proof: Data,
     pub public_input: Data,
@@ -65,7 +64,7 @@ pub struct WitnessData {
 
 pub type VkHash = [u8; 32];
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Data {
     pub data: Box<[u8]>,
 }
@@ -80,22 +79,38 @@ impl Data {
     }
 }
 
+impl TryFrom<&Data> for u64 {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &Data) -> Result<Self> {
+        if value.data.len() > 8 {
+            bail!("Data too long to convert to u64");
+        }
+        let buf = value.data.iter().copied().pad_using(8, |_| 0).collect_vec();
+        Ok(u64::from_le_bytes(buf.try_into().unwrap()))
+    }
+}
+
 pub const TOKEN: &[u8] = b"Token";
 pub const NFT: &[u8] = b"NFT";
 
+pub fn sum_token_amount(self_state_key: &StateKey, utxos: &[Utxo]) -> Result<u64> {
+    let mut in_amount: u64 = 0;
+    for utxo in utxos {
+        // We only care about UTXOs that have our token.
+        if let Some(state) = utxo.get(self_state_key) {
+            let utxo_amount: u64 = state.try_into()?;
+            in_amount += utxo_amount;
+        }
+    }
+    Ok(in_amount)
+}
+
 mod tests {
-    use anyhow::{ensure, Context};
-    use byteorder::{ByteOrder, LittleEndian};
+    use anyhow::{bail, ensure};
     use itertools::Itertools;
 
     use super::*;
-
-    impl From<&Data> for u64 {
-        fn from(data: &Data) -> Self {
-            let buffer = data.data.iter().take(8).copied().pad_using(8, |_| 0).collect_vec();
-            LittleEndian::read_u64(&buffer)
-        }
-    }
 
     pub fn zk_meme_token_policy(self_state_key: &StateKey, tx: &Transaction, x: &Data, w: &Data) -> Result<()> {
         assert_eq!(self_state_key.tag, TOKEN);
@@ -109,20 +124,6 @@ mod tests {
         assert!(in_amount == out_amount || is_meme_token_creator(x, w)?);
 
         Ok(())
-    }
-
-    fn sum_token_amount(self_state_key: &StateKey, utxos: &[Utxo]) -> Result<u64> {
-        let mut in_amount: u64 = 0;
-        for utxo in utxos {
-            // We only care about UTXOs that have our token.
-            if let Some(state) = utxo.get(self_state_key) {
-                // There needs to be an `impl TryFrom<&Data> for u64`
-                // for this to work.
-                let utxo_amount: u64 = state.try_into()?;
-                in_amount += utxo_amount;
-            }
-        }
-        Ok(in_amount)
     }
 
     fn is_meme_token_creator(x: &Data, w: &Data) -> Result<bool> {
@@ -202,12 +203,12 @@ mod tests {
         let ins = vec![Utxo {
             id: Some(UtxoId::empty()),
             amount: 1,
-            state: vec![(token_state_key.clone(), Data::new(Box::new(1u64.to_le_bytes())))],
+            state: BTreeMap::from([(token_state_key.clone(), Data::new(Box::new(1u64.to_le_bytes())))]),
         }];
         let outs = vec![Utxo {
             id: None,
             amount: 1,
-            state: vec![(token_state_key.clone(), Data::new(Box::new(1u64.to_le_bytes())))],
+            state: BTreeMap::from([(token_state_key.clone(), Data::new(Box::new(1u64.to_le_bytes())))]),
         }];
 
         let tx = Transaction {
