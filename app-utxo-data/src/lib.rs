@@ -10,18 +10,18 @@ pub struct Transaction {
     pub outs: Vec<Utxo>,
 }
 
-pub type Witness = BTreeMap<AppKey, WitnessData>;
+pub type Witness = BTreeMap<AppId, WitnessData>;
 
 // App UTXO as presented to the validation predicate.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Utxo {
     pub id: Option<UtxoId>,
     pub amount: u64,
-    pub state: BTreeMap<AppKey, AppData>,
+    pub state: BTreeMap<AppId, AppData>,
 }
 
 impl Utxo {
-    pub fn get(&self, key: &AppKey) -> Option<&AppData> {
+    pub fn get(&self, key: &AppId) -> Option<&AppData> {
         self.state.get(key)
     }
 }
@@ -46,7 +46,7 @@ impl UtxoId {
 }
 
 #[derive(Eq, PartialEq, Hash, Ord, PartialOrd, Default, Clone, Debug, Serialize, Deserialize)]
-pub struct AppKey {
+pub struct AppId {
     pub tag: Vec<u8>,
     pub prefix: Vec<u8>,
     pub vk_hash: VkHash,
@@ -93,11 +93,38 @@ impl From<u64> for Data {
 pub const TOKEN: &[u8] = b"Token";
 pub const NFT: &[u8] = b"NFT";
 
-pub fn sum_token_amount(self_app_key: &AppKey, utxos: &[Utxo]) -> Result<u64> {
+pub fn token_amounts_balanced(app_id: &AppId, tx: &Transaction) -> bool {
+    match (
+        sum_token_amount(app_id, &tx.ins),
+        sum_token_amount(app_id, &tx.outs),
+    ) {
+        (Ok(amount_in), Ok(amount_out)) => amount_in == amount_out,
+        (..) => false,
+    }
+}
+
+pub fn nft_state_preserved(app_id: &AppId, tx: &Transaction) -> bool {
+    let nft_states_multiset_in = tx
+        .ins
+        .iter()
+        .filter_map(|utxo| utxo.state.get(app_id))
+        .map(|s| (s, ()))
+        .into_group_map();
+    let nft_states_multiset_out = tx
+        .outs
+        .iter()
+        .filter_map(|utxo| utxo.state.get(app_id))
+        .map(|s| (s, ()))
+        .into_group_map();
+
+    nft_states_multiset_in == nft_states_multiset_out
+}
+
+pub fn sum_token_amount(self_app_id: &AppId, utxos: &[Utxo]) -> Result<u64> {
     let mut in_amount: u64 = 0;
     for utxo in utxos {
         // We only care about UTXOs that have our token.
-        if let Some(state) = utxo.get(self_app_key) {
+        if let Some(state) = utxo.get(self_app_id) {
             let utxo_amount: u64 = state.try_into()?;
             in_amount += utxo_amount;
         }
@@ -111,11 +138,16 @@ mod tests {
 
     use super::*;
 
-    pub fn zk_meme_token_policy(self_app_key: &AppKey, tx: &Transaction, x: &Data, w: &Data) -> Result<()> {
-        assert_eq!(self_app_key.tag, TOKEN);
+    pub fn zk_meme_token_policy(
+        self_app_id: &AppId,
+        tx: &Transaction,
+        x: &Data,
+        w: &Data,
+    ) -> Result<()> {
+        assert_eq!(self_app_id.tag, TOKEN);
 
-        let in_amount = sum_token_amount(self_app_key, &tx.ins)?;
-        let out_amount = sum_token_amount(self_app_key, &tx.outs)?;
+        let in_amount = sum_token_amount(self_app_id, &tx.ins)?;
+        let out_amount = sum_token_amount(self_app_id, &tx.outs)?;
 
         // is_meme_token_creator is a function that checks that
         // the spender is the creator of this meme token.
@@ -140,7 +172,12 @@ mod tests {
         }
     }
 
-    pub fn spender_owns_email_contract(self_app_key: &AppKey, tx: &Transaction, x: &Data, w: &Data) -> Result<()> {
+    pub fn spender_owns_email_contract(
+        self_app_id: &AppId,
+        tx: &Transaction,
+        x: &Data,
+        w: &Data,
+    ) -> Result<()> {
         // Make sure the spender owns the email addresses in the input UTXOs.
         for utxo in &tx.ins {
             // Retrieve the state for this zkapp.
@@ -149,7 +186,7 @@ mod tests {
             // In an actual UTXO, the hash of the validator's VK is used instead.
             // Also, we only care about UTXOs that have a state for the current
             // validator.
-            if let Some(state) = utxo.get(self_app_key) {
+            if let Some(state) = utxo.get(self_app_id) {
                 // If the state is not even a string, the UTXO is invalid.
                 let email: String = state.try_into()?;
                 // Check if the spender owns the email address.
@@ -161,7 +198,7 @@ mod tests {
         for utxo in &tx.outs {
             // Again, we only care about UTXOs that have a state for the current
             // validator.
-            if let Some(state) = utxo.get(self_app_key) {
+            if let Some(state) = utxo.get(self_app_id) {
                 // There needs to be an `impl TryFrom<&Data> for String`
                 // for this to work.
                 let email: String = state.try_into()?;
@@ -187,13 +224,18 @@ mod tests {
         }
     }
 
-    pub fn rollup_validator(self_app_key: &AppKey, tx: &Transaction, x: &Data, w: &Data) -> Result<()> {
+    pub fn rollup_validator(
+        self_app_id: &AppId,
+        tx: &Transaction,
+        x: &Data,
+        w: &Data,
+    ) -> Result<()> {
         todo!()
     }
 
     #[test]
     fn test_zk_meme_token_validator() {
-        let token_app_key = AppKey {
+        let token_app_id = AppId {
             tag: TOKEN.to_vec(),
             prefix: vec![],
             vk_hash: [0u8; 32],
@@ -202,12 +244,12 @@ mod tests {
         let ins = vec![Utxo {
             id: Some(UtxoId::empty()),
             amount: 1,
-            state: BTreeMap::from([(token_app_key.clone(), 1u64.into())]),
+            state: BTreeMap::from([(token_app_id.clone(), 1u64.into())]),
         }];
         let outs = vec![Utxo {
             id: None,
             amount: 1,
-            state: BTreeMap::from([(token_app_key.clone(), 1u64.into())]),
+            state: BTreeMap::from([(token_app_id.clone(), 1u64.into())]),
         }];
 
         let tx = Transaction {
@@ -216,6 +258,6 @@ mod tests {
             outs,
         };
 
-        assert!(zk_meme_token_policy(&token_app_key, &tx, &Data::empty(), &Data::empty()).is_ok());
+        assert!(zk_meme_token_policy(&token_app_id, &tx, &Data::empty(), &Data::empty()).is_ok());
     }
 }
