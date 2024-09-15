@@ -5,7 +5,7 @@ use app_utxo_data::{
 use itertools::Itertools;
 use std::collections::BTreeSet;
 
-pub fn validate(tx: Transaction, witness: Witness) -> Result<()> {
+pub fn validate(tx: &Transaction, witness: &Witness) -> Result<()> {
     let app_ids = tx
         .ins
         .iter()
@@ -16,10 +16,10 @@ pub fn validate(tx: Transaction, witness: Witness) -> Result<()> {
 
     for app_id in app_ids {
         match &app_id.tag {
-            TOKEN if token_amounts_balanced(app_id, &tx) => {
+            TOKEN if token_amounts_balanced(app_id, tx) => {
                 return Ok(());
             }
-            NFT if nft_state_preserved(app_id, &tx) => {
+            NFT if nft_state_preserved(app_id, tx) => {
                 return Ok(());
             }
             _ => {}
@@ -30,7 +30,7 @@ pub fn validate(tx: Transaction, witness: Witness) -> Result<()> {
             .ok_or_else(|| anyhow!("WitnessData missing for key {:?}", app_id))?;
 
         let proof = WrappedProof::from(&witness_data.proof);
-        proof.verify(app_id, &tx, &witness_data.public_input)?;
+        proof.verify(app_id, tx, &witness_data.public_input)?;
     }
 
     Ok(())
