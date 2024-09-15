@@ -1,7 +1,10 @@
 use anyhow::{bail, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, io::Read};
+use std::{
+    collections::{BTreeMap, HashMap},
+    io::Read,
+};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Transaction {
@@ -21,6 +24,7 @@ pub struct Utxo {
 }
 
 impl Utxo {
+    #[inline]
     pub fn get(&self, key: &AppId) -> Option<&AppData> {
         self.state.get(key)
     }
@@ -104,20 +108,18 @@ pub fn token_amounts_balanced(app_id: &AppId, tx: &Transaction) -> bool {
 }
 
 pub fn nft_state_preserved(app_id: &AppId, tx: &Transaction) -> bool {
-    let nft_states_multiset_in = tx
-        .ins
-        .iter()
-        .filter_map(|utxo| utxo.state.get(app_id))
-        .map(|s| (s, ()))
-        .into_group_map();
-    let nft_states_multiset_out = tx
-        .outs
-        .iter()
-        .filter_map(|utxo| utxo.state.get(app_id))
-        .map(|s| (s, ()))
-        .into_group_map();
+    let nft_states_in = app_data_multiset(app_id, &tx.ins);
+    let nft_states_out = app_data_multiset(app_id, &tx.outs);
 
-    nft_states_multiset_in == nft_states_multiset_out
+    nft_states_in == nft_states_out
+}
+
+fn app_data_multiset<'a>(app_id: &AppId, utxos: &'a Vec<Utxo>) -> HashMap<&'a AppData, Vec<()>> {
+    utxos
+        .iter()
+        .filter_map(|utxo| utxo.get(app_id))
+        .map(|s| (s, ()))
+        .into_group_map()
 }
 
 pub fn sum_token_amount(self_app_id: &AppId, utxos: &[Utxo]) -> Result<u64> {
