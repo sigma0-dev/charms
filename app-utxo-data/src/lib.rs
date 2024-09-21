@@ -20,13 +20,13 @@ pub type Witness = BTreeMap<AppId, WitnessData>;
 pub struct Utxo {
     pub id: Option<UtxoId>,
     pub amount: u64,
-    pub state: BTreeMap<AppId, AppData>,
+    pub data: BTreeMap<AppId, AppState>,
 }
 
 impl Utxo {
     #[inline]
-    pub fn get(&self, key: &AppId) -> Option<&AppData> {
-        self.state.get(key)
+    pub fn get(&self, key: &AppId) -> Option<&AppState> {
+        self.data.get(key)
     }
 }
 
@@ -56,7 +56,7 @@ pub struct AppId {
     pub vk_hash: VkHash,
 }
 
-pub type AppData = Data;
+pub type AppState = Data;
 
 type TxId = [u8; 32];
 
@@ -108,13 +108,13 @@ pub fn token_amounts_balanced(app_id: &AppId, tx: &Transaction) -> bool {
 }
 
 pub fn nft_state_preserved(app_id: &AppId, tx: &Transaction) -> bool {
-    let nft_states_in = app_data_multiset(app_id, &tx.ins);
-    let nft_states_out = app_data_multiset(app_id, &tx.outs);
+    let nft_states_in = app_state_multiset(app_id, &tx.ins);
+    let nft_states_out = app_state_multiset(app_id, &tx.outs);
 
     nft_states_in == nft_states_out
 }
 
-fn app_data_multiset<'a>(app_id: &AppId, utxos: &'a Vec<Utxo>) -> HashMap<&'a AppData, Vec<()>> {
+fn app_state_multiset<'a>(app_id: &AppId, utxos: &'a Vec<Utxo>) -> HashMap<&'a AppState, Vec<()>> {
     utxos
         .iter()
         .filter_map(|utxo| utxo.get(app_id))
@@ -246,12 +246,12 @@ mod tests {
         let ins = vec![Utxo {
             id: Some(UtxoId::empty()),
             amount: 1,
-            state: BTreeMap::from([(token_app_id.clone(), 1u64.into())]),
+            data: BTreeMap::from([(token_app_id.clone(), 1u64.into())]),
         }];
         let outs = vec![Utxo {
             id: None,
             amount: 1,
-            state: BTreeMap::from([(token_app_id.clone(), 1u64.into())]),
+            data: BTreeMap::from([(token_app_id.clone(), 1u64.into())]),
         }];
 
         let tx = Transaction {

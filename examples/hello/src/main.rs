@@ -14,12 +14,12 @@ pub fn main() {
     let ins = vec![Utxo {
         id: Some(UtxoId::empty()),
         amount: 1,
-        state: BTreeMap::from([(token_app_id.clone(), 1u64.into())]),
+        data: BTreeMap::from([(token_app_id.clone(), 1u64.into())]),
     }];
     let outs = vec![Utxo {
         id: None,
         amount: 1,
-        state: BTreeMap::from([(token_app_id.clone(), 1u64.into())]),
+        data: BTreeMap::from([(token_app_id.clone(), 1u64.into())]),
     }];
 
     let tx = Transaction {

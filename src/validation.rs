@@ -10,7 +10,7 @@ pub fn validate(tx: &Transaction, witness: &Witness) -> Result<()> {
         .ins
         .iter()
         .chain(tx.outs.iter())
-        .map(|utxo| utxo.state.iter().map(|(k, _)| k))
+        .map(|utxo| utxo.data.iter().map(|(k, _)| k))
         .flatten()
         .collect::<BTreeSet<_>>();
 
