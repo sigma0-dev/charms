@@ -1,6 +1,6 @@
 #![no_main]
 
-use app_utxo_data::{
+use charms_data::{
     nft_state_preserved, AppId, Data, Transaction, Utxo, NFT, TOKEN,
 };
 use jolt::provable;

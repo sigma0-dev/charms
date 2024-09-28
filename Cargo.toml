@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-app-utxo-data = { path = "./app-utxo-data" }
+charms-data = { path = "./charms-data" }
 anyhow = { version = "1.0.0" }
 bitcoin = { version = "0.32.0" }
 itertools = "0.13.0"
+jolt = { package = "jolt-sdk", git = "https://github.com/a16z/jolt", features = ["host"] }
 serde = { version = "1.0.0", features = ["derive"] }

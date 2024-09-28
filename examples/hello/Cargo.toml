@@ -12,7 +12,7 @@ codegen-units = 1
 lto = "fat"
 
 [dependencies]
-app-utxo-data = { path = "../../app-utxo-data" }
+charms-data = { path = "../../charms-data" }
 jolt = { package = "jolt-sdk", git = "https://github.com/a16z/jolt", features = ["host"] }
 guest = { path = "./guest" }
 

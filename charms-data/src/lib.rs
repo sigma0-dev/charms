@@ -1,10 +1,7 @@
 use anyhow::{bail, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::{BTreeMap, HashMap},
-    io::Read,
-};
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Transaction {
@@ -13,20 +10,23 @@ pub struct Transaction {
     pub outs: Vec<Utxo>,
 }
 
+/// Charm is essentially an app-level UTXO that can carry tokens, NFTs, arbitrary app state.
+/// Structurally it is a sorted map of `app_id -> app_state`
+pub type Charm = BTreeMap<AppId, AppState>;
+
 pub type Witness = BTreeMap<AppId, WitnessData>;
 
 // App UTXO as presented to the validation predicate.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Utxo {
     pub id: Option<UtxoId>,
-    pub amount: u64,
-    pub data: BTreeMap<AppId, AppState>,
+    pub charm: Charm,
 }
 
 impl Utxo {
     #[inline]
     pub fn get(&self, key: &AppId) -> Option<&AppState> {
-        self.data.get(key)
+        self.charm.get(key)
     }
 }
 
@@ -94,7 +94,7 @@ impl From<u64> for Data {
     }
 }
 
-pub const TOKEN: &[u8] = b"Token";
+pub const TOKEN: &[u8] = b"TOKEN";
 pub const NFT: &[u8] = b"NFT";
 
 pub fn token_amounts_balanced(app_id: &AppId, tx: &Transaction) -> bool {
@@ -245,13 +245,11 @@ mod tests {
 
         let ins = vec![Utxo {
             id: Some(UtxoId::empty()),
-            amount: 1,
-            data: BTreeMap::from([(token_app_id.clone(), 1u64.into())]),
+            charm: Charm::from([(token_app_id.clone(), 1u64.into())]),
         }];
         let outs = vec![Utxo {
             id: None,
-            amount: 1,
-            data: BTreeMap::from([(token_app_id.clone(), 1u64.into())]),
+            charm: Charm::from([(token_app_id.clone(), 1u64.into())]),
         }];
 
         let tx = Transaction {

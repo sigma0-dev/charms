@@ -1,4 +1,4 @@
-use app_utxo_data::{AppId, Data, Transaction, Utxo, UtxoId, TOKEN};
+use charms_data::{AppId, Charm, Data, Transaction, Utxo, UtxoId, TOKEN};
 use jolt::{Jolt, RV32IJoltVM};
 use std::collections::BTreeMap;
 
@@ -13,13 +13,11 @@ pub fn main() {
 
     let ins = vec![Utxo {
         id: Some(UtxoId::empty()),
-        amount: 1,
-        data: BTreeMap::from([(token_app_id.clone(), 1u64.into())]),
+        charm: Charm::from([(token_app_id.clone(), 1u64.into())]),
     }];
     let outs = vec![Utxo {
         id: None,
-        amount: 1,
-        data: BTreeMap::from([(token_app_id.clone(), 1u64.into())]),
+        charm: Charm::from([(token_app_id.clone(), 1u64.into())]),
     }];
 
     let tx = Transaction {

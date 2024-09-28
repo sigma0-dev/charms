@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use app_utxo_data::{
+use charms_data::{
     nft_state_preserved, token_amounts_balanced, AppId, Data, Transaction, Witness, NFT, TOKEN,
 };
 use itertools::Itertools;
@@ -10,7 +10,7 @@ pub fn validate(tx: &Transaction, witness: &Witness) -> Result<()> {
         .ins
         .iter()
         .chain(tx.outs.iter())
-        .map(|utxo| utxo.data.iter().map(|(k, _)| k))
+        .map(|utxo| utxo.charm.iter().map(|(k, _)| k))
         .flatten()
         .collect::<BTreeSet<_>>();
 
