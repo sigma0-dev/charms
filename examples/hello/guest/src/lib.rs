@@ -10,7 +10,7 @@ pub fn zk_meme_token_policy(
     self_app_id: AppId,
     tx: Transaction,
     x: Data,
-    w: Data,
+    #[private] w: Data,
 ) {
     assert_eq!(self_app_id.tag, TOKEN);
 
@@ -21,7 +21,12 @@ pub fn zk_meme_token_policy(
 }
 
 #[provable]
-pub fn example_token_policy(app_id: AppId, tx: Transaction, x: Data, w: Data) {
+pub fn example_token_policy(
+    app_id: AppId,
+    tx: Transaction,
+    x: Data,
+    #[private] w: Data,
+) {
     assert_eq!(app_id.tag, TOKEN);
 
     let in_amount = sum_token_amount(&app_id, &tx.ins);
@@ -35,7 +40,12 @@ pub fn example_token_policy(app_id: AppId, tx: Transaction, x: Data, w: Data) {
 }
 
 #[provable]
-pub fn example_nft(app_id: AppId, tx: Transaction, x: Data, w: Data) {
+pub fn example_nft(
+    app_id: AppId,
+    tx: Transaction,
+    x: Data,
+    #[private] w: Data,
+) {
     assert_eq!(app_id.tag, NFT);
 
     // if the NFT state is unchanged (it was simply transferred),

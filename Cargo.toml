@@ -8,5 +8,5 @@ charms-data = { path = "./charms-data" }
 anyhow = { version = "1.0.0" }
 bitcoin = { version = "0.32.0" }
 itertools = "0.13.0"
-jolt = { package = "jolt-sdk", git = "https://github.com/a16z/jolt", features = ["host"] }
+jolt = { package = "jolt-sdk", git = "https://github.com/sigma0-dev/jolt", rev = "731194a05affbc6d4680638ca419b6eab2704e76", features = ["host"] }
 serde = { version = "1.0.0", features = ["derive"] }

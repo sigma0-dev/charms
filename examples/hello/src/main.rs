@@ -34,7 +34,7 @@ pub fn main() {
         Data::empty(),
         Data::empty(),
     );
-    let is_valid = RV32IJoltVM::verify(prep, proof.proof, proof.commitments).is_ok();
+    let is_valid = RV32IJoltVM::verify(prep, proof.proof, proof.commitments, None).is_ok();
 
     dbg!(output);
     dbg!(is_valid);

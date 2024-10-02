@@ -12,5 +12,5 @@ guest = []
 
 [dependencies]
 charms-data = { path = "../../../charms-data" }
-jolt = { package = "jolt-sdk", git = "https://github.com/a16z/jolt", features = ["guest-std"] }
+jolt = { package = "jolt-sdk", git = "https://github.com/sigma0-dev/jolt", rev = "731194a05affbc6d4680638ca419b6eab2704e76", features = ["guest-std"] }
 anyhow = "1.0"
