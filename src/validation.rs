@@ -1,11 +1,16 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, ensure, Result};
+use ark_serialize::CanonicalDeserialize;
+use bitcoin::hashes::Hash;
 use charms_data::{
-    nft_state_preserved, token_amounts_balanced, AppId, Data, Transaction, Witness, NFT, TOKEN,
+    nft_state_preserved, token_amounts_balanced, AppId, Data, Transaction, VKs, VkHash, Witness,
+    NFT, TOKEN, VK,
 };
 use itertools::Itertools;
+use jolt::{host::ELFInstruction, Jolt, JoltHyperKZGProof, JoltPreprocessing, RV32IJoltVM, F, PCS};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
-pub fn validate(tx: &Transaction, witness: &Witness) -> Result<()> {
+pub fn validate(tx: &Transaction, witness: &Witness, vks: &VKs) -> Result<()> {
     let app_ids = tx
         .ins
         .iter()
@@ -29,31 +34,94 @@ pub fn validate(tx: &Transaction, witness: &Witness) -> Result<()> {
             .get(app_id)
             .ok_or_else(|| anyhow!("WitnessData missing for key {:?}", app_id))?;
 
-        let proof = WrappedProof::from(&witness_data.proof);
-        proof.verify(app_id, tx, &witness_data.public_input)?;
+        let proof = WrappedProof::try_from(&witness_data.proof)?;
+
+        let vk = vks
+            .get(&app_id.vk_hash)
+            .ok_or_else(|| anyhow!("VK missing for key {:?}", app_id))?;
+
+        proof.verify(app_id, vk.try_into()?, tx, &witness_data.public_input)?;
     }
 
     Ok(())
 }
 
-trait Proof {
-    fn verify(&self, self_app_id: &AppId, tx: &Transaction, public_input: &Data) -> Result<()>;
+pub trait Proof {
+    type VK;
+
+    fn verify(
+        self,
+        app_id: &AppId,
+        vk: &Self::VK,
+        tx: &Transaction,
+        public_input: &Data,
+    ) -> Result<()>;
 }
 
-struct WrappedProof {
-    proof: Data,
+pub struct WrappedProof {
+    proof: JoltHyperKZGProof,
 }
 
-impl From<&Data> for WrappedProof {
-    fn from(data: &Data) -> Self {
-        Self {
-            proof: data.clone(),
-        }
+impl TryFrom<&Data> for WrappedProof {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &Data) -> std::result::Result<Self, Self::Error> {
+        // deserialize proof from data
+        let proof = JoltHyperKZGProof::deserialize_compressed(&value)?;
+        Ok(Self { proof })
     }
 }
 
 impl Proof for WrappedProof {
-    fn verify(&self, self_app_id: &AppId, tx: &Transaction, public_input: &Data) -> Result<()> {
-        todo!()
+    type VK = WrappedVK;
+
+    fn verify(
+        self,
+        app_id: &AppId,
+        vk: &Self::VK,
+        tx: &Transaction,
+        public_input: &Data,
+    ) -> Result<()> {
+        assert_eq!(vk.hash(), &app_id.vk_hash);
+
+        let WrappedVK {
+            bytecode,
+            memory_init,
+        } = vk.clone();
+
+        dbg!("preprocessing");
+        let preproc: JoltPreprocessing<4, F, PCS> =
+            RV32IJoltVM::preprocess(bytecode, memory_init, 1 << 20, 1 << 20, 1 << 20);
+
+        let JoltHyperKZGProof { proof, commitments } = self.proof;
+
+        let (proof_app_id, proof_tx, proof_x, _): (AppId, Transaction, Data, Data) =
+            postcard::from_bytes(&proof.program_io.inputs)?;
+
+        ensure!(&proof_app_id == app_id, "app_id mismatch");
+        ensure!(&proof_tx == tx, "tx mismatch");
+        ensure!(&proof_x == public_input, "public_input mismatch");
+
+        RV32IJoltVM::verify(preproc, proof, commitments, None).map_err(Into::into)
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct WrappedVK {
+    bytecode: Vec<ELFInstruction>,
+    memory_init: Vec<(u64, u8)>,
+}
+
+impl TryFrom<&VK> for WrappedVK {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &VK) -> std::result::Result<Self, Self::Error> {
+        postcard::from_bytes(&value.0).map_err(Into::into)
+    }
+}
+
+impl WrappedVK {
+    pub fn hash(&self) -> &VkHash {
+        Hash::hash(&postcard::to_stdvec(self).unwrap()).as_ref()
     }
 }

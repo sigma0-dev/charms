@@ -1,6 +1,5 @@
 use charms_data::{AppId, Charm, Data, Transaction, Utxo, UtxoId, TOKEN};
 use jolt::{Jolt, RV32IJoltVM};
-use std::collections::BTreeMap;
 
 pub fn main() {
     let (program, prep) = guest::preprocess_zk_meme_token_policy();
@@ -11,19 +10,16 @@ pub fn main() {
         vk_hash: [0u8; 32],
     };
 
-    let ins = vec![Utxo {
-        id: Some(UtxoId::empty()),
-        charm: Charm::from([(token_app_id.clone(), 1u64.into())]),
-    }];
-    let outs = vec![Utxo {
-        id: None,
-        charm: Charm::from([(token_app_id.clone(), 1u64.into())]),
-    }];
-
     let tx = Transaction {
-        ins,
+        ins: vec![Utxo {
+            id: Some(UtxoId::empty()),
+            charm: Charm::from([(token_app_id.clone(), 1u64.into())]),
+        }],
         refs: vec![],
-        outs,
+        outs: vec![Utxo {
+            id: None,
+            charm: Charm::from([(token_app_id.clone(), 1u64.into())]),
+        }],
     };
 
     let (output, proof) = guest::prove_zk_meme_token_policy(

@@ -3,7 +3,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Transaction {
     pub ins: Vec<Utxo>,
     pub refs: Vec<Utxo>,
@@ -16,8 +16,10 @@ pub type Charm = BTreeMap<AppId, AppState>;
 
 pub type Witness = BTreeMap<AppId, WitnessData>;
 
+pub type VKs = BTreeMap<VkHash, VK>;
+
 // App UTXO as presented to the validation predicate.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Utxo {
     pub id: Option<UtxoId>,
     pub charm: Charm,
@@ -67,6 +69,8 @@ pub struct WitnessData {
 }
 
 pub type VkHash = [u8; 32];
+
+pub type VK = Data;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Data(pub Vec<u8>);
@@ -135,7 +139,7 @@ pub fn sum_token_amount(self_app_id: &AppId, utxos: &[Utxo]) -> Result<u64> {
 }
 
 mod tests {
-    use anyhow::{bail, ensure};
+    use anyhow::ensure;
     use itertools::Itertools;
 
     use super::*;
