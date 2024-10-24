@@ -10,6 +10,6 @@ ark-serialize = { version = "0.4.0" }
 bitcoin = { version = "0.32.0" }
 charms-data = { path = "./charms-data" }
 itertools = "0.13.0"
-jolt = { package = "jolt-sdk", git = "https://github.com/sigma0-dev/jolt", rev = "731194a05affbc6d4680638ca419b6eab2704e76", features = ["host"] }
+jolt = { package = "jolt-sdk", git = "https://github.com/sigma0-dev/jolt", branch = "private-attribute", features = ["host"] }
 postcard = { version = "1.0.8", default-features = false, features = ["use-std"] }
 serde = { version = "1.0.0", features = ["derive"] }

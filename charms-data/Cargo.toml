@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.86"
-serde = { version = "1.0.209", features = ["derive"] }
-itertools = "0.13.0"
+anyhow = { version = "1.0.86", default-features = false }
+serde = { version = "1.0.209", default-features = false, features = ["derive", "alloc"] }
+ark-std = { version = "0.4.0", default-features = false }

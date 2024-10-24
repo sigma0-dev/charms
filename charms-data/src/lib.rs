@@ -1,7 +1,10 @@
+#![no_std]
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use anyhow::{bail, Result};
-use itertools::Itertools;
+use ark_std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Transaction {
@@ -72,7 +75,7 @@ pub type VkHash = [u8; 32];
 
 pub type VK = Data;
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Data(pub Vec<u8>);
 
 impl Data {
@@ -118,12 +121,22 @@ pub fn nft_state_preserved(app_id: &AppId, tx: &Transaction) -> bool {
     nft_states_in == nft_states_out
 }
 
-fn app_state_multiset<'a>(app_id: &AppId, utxos: &'a Vec<Utxo>) -> HashMap<&'a AppState, Vec<()>> {
+pub fn app_state_multiset<'a>(
+    app_id: &AppId,
+    utxos: &'a Vec<Utxo>,
+) -> BTreeMap<&'a AppState, usize> {
     utxos
         .iter()
         .filter_map(|utxo| utxo.get(app_id))
-        .map(|s| (s, ()))
-        .into_group_map()
+        .fold(BTreeMap::new(), |mut r, s| {
+            match r.get_mut(&s) {
+                Some(count) => *count += 1,
+                None => {
+                    r.insert(s, 1);
+                }
+            }
+            r
+        })
 }
 
 pub fn sum_token_amount(self_app_id: &AppId, utxos: &[Utxo]) -> Result<u64> {
@@ -139,8 +152,6 @@ pub fn sum_token_amount(self_app_id: &AppId, utxos: &[Utxo]) -> Result<u64> {
 }
 
 mod tests {
-    use anyhow::ensure;
-    use itertools::Itertools;
 
     use super::*;
 
@@ -163,80 +174,9 @@ mod tests {
         Ok(())
     }
 
-    fn is_meme_token_creator(x: &Data, w: &Data) -> Result<bool> {
-        // TODO should be a real public key instead of a bunch of zeros
-        const CREATOR_PUBLIC_KEY: [u8; 64] = [0u8; 64];
-        // todo!("check the signature in the witness against CREATOR_PUBLIC_KEY")
+    fn is_meme_token_creator(_x: &Data, _w: &Data) -> Result<bool> {
+        // todo!("check the signature in the witness")
         Ok(false)
-    }
-
-    impl TryFrom<&Data> for String {
-        type Error = anyhow::Error;
-
-        fn try_from(data: &Data) -> std::result::Result<Self, Self::Error> {
-            Ok(String::from_utf8(data.0.to_vec())?)
-        }
-    }
-
-    pub fn spender_owns_email_contract(
-        self_app_id: &AppId,
-        tx: &Transaction,
-        x: &Data,
-        w: &Data,
-    ) -> Result<()> {
-        // Make sure the spender owns the email addresses in the input UTXOs.
-        for utxo in &tx.ins {
-            // Retrieve the state for this zkapp.
-            // OWN_VK_HASH (always zeroed out) refers to the current validator's
-            // own VK hash in the UTXO (as presented to the validator).
-            // In an actual UTXO, the hash of the validator's VK is used instead.
-            // Also, we only care about UTXOs that have a state for the current
-            // validator.
-            if let Some(state) = utxo.get(self_app_id) {
-                // If the state is not even a string, the UTXO is invalid.
-                let email: String = state.try_into()?;
-                // Check if the spender owns the email address.
-                ensure!(owns_email(&email, x, w)?);
-            }
-        }
-
-        // Make sure our own state in output UTXOs is an email address.
-        for utxo in &tx.outs {
-            // Again, we only care about UTXOs that have a state for the current
-            // validator.
-            if let Some(state) = utxo.get(self_app_id) {
-                // There needs to be an `impl TryFrom<&Data> for String`
-                // for this to work.
-                let email: String = state.try_into()?;
-                // Check if the email address is valid XD
-                ensure!(email.contains('@'));
-            }
-        }
-
-        Ok(())
-    }
-
-    fn owns_email(email: &str, x: &Data, w: &Data) -> Result<bool> {
-        todo!("Implement!")
-    }
-
-    struct RollupState(String);
-
-    impl TryFrom<&Data> for RollupState {
-        type Error = anyhow::Error;
-
-        fn try_from(data: &Data) -> std::result::Result<Self, Self::Error> {
-            todo!("Implement!")
-        }
-    }
-
-    pub fn rollup_validator(
-        self_app_id: &AppId,
-        tx: &Transaction,
-        x: &Data,
-        w: &Data,
-    ) -> Result<()> {
-        todo!()
     }
 
     #[test]
