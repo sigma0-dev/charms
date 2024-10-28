@@ -2,7 +2,7 @@
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use anyhow::{bail, Result};
+use anyhow::{ensure, Error, Result};
 use ark_std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
@@ -54,6 +54,19 @@ impl UtxoId {
     }
 }
 
+impl TryFrom<&[u8]> for UtxoId {
+    type Error = Error;
+
+    fn try_from(bs: &[u8]) -> Result<Self, Self::Error> {
+        ensure!(bs.len() == 36);
+
+        let txid = bs[0..32].try_into().or_else(|_| unreachable!())?;
+        let vout = u32::from_le_bytes(bs[32..36].try_into().or_else(|_| unreachable!())?);
+
+        Ok(Self::new(txid, vout))
+    }
+}
+
 #[derive(Eq, PartialEq, Hash, Ord, PartialOrd, Default, Clone, Debug, Serialize, Deserialize)]
 pub struct AppId {
     pub tag: Vec<u8>,
@@ -85,12 +98,10 @@ impl Data {
 }
 
 impl TryFrom<&Data> for u64 {
-    type Error = anyhow::Error;
+    type Error = Error;
 
     fn try_from(value: &Data) -> Result<Self> {
-        if value.0.len() > 8 {
-            bail!("Data too long to convert to u64");
-        }
+        ensure!(value.0.len() <= 8);
         Ok(u64::from_le_bytes(value.clone().0.try_into().unwrap()))
     }
 }
@@ -104,13 +115,13 @@ impl From<u64> for Data {
 pub const TOKEN: &[u8] = b"TOKEN";
 pub const NFT: &[u8] = b"NFT";
 
-pub fn token_amounts_balanced(app_id: &AppId, tx: &Transaction) -> bool {
+pub fn token_amounts_balanced(app_id: &AppId, tx: &Transaction) -> Option<bool> {
     match (
         sum_token_amount(app_id, &tx.ins),
         sum_token_amount(app_id, &tx.outs),
     ) {
-        (Ok(amount_in), Ok(amount_out)) => amount_in == amount_out,
-        (..) => false,
+        (Ok(amount_in), Ok(amount_out)) => Some(amount_in == amount_out),
+        (..) => None,
     }
 }
 
@@ -152,31 +163,20 @@ pub fn sum_token_amount(self_app_id: &AppId, utxos: &[Utxo]) -> Result<u64> {
 }
 
 mod tests {
-
     use super::*;
 
-    pub fn zk_meme_token_policy(
-        self_app_id: &AppId,
-        tx: &Transaction,
-        x: &Data,
-        w: &Data,
-    ) -> Result<()> {
-        assert_eq!(self_app_id.tag, TOKEN);
-
-        let in_amount = sum_token_amount(self_app_id, &tx.ins)?;
-        let out_amount = sum_token_amount(self_app_id, &tx.outs)?;
+    pub fn zk_meme_token_policy(app_id: &AppId, tx: &Transaction, x: &Data, w: &Data) {
+        assert_eq!(app_id.tag, TOKEN);
 
         // is_meme_token_creator is a function that checks that
         // the spender is the creator of this meme token.
         // In our policy, the token creator can mint and burn tokens at will.
-        assert!(in_amount == out_amount || is_meme_token_creator(x, w)?);
-
-        Ok(())
+        assert!(token_amounts_balanced(&app_id, &tx).unwrap() || is_meme_token_creator(x, w));
     }
 
-    fn is_meme_token_creator(_x: &Data, _w: &Data) -> Result<bool> {
-        // todo!("check the signature in the witness")
-        Ok(false)
+    fn is_meme_token_creator(_x: &Data, _w: &Data) -> bool {
+        // TODO check the signature in the witness
+        false
     }
 
     #[test]
@@ -202,6 +202,7 @@ mod tests {
             outs,
         };
 
-        assert!(zk_meme_token_policy(&token_app_id, &tx, &Data::empty(), &Data::empty()).is_ok());
+        let empty = Data::empty();
+        zk_meme_token_policy(&token_app_id, &tx, &empty, &empty); // pass if no panic
     }
 }

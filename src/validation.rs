@@ -6,7 +6,10 @@ use charms_data::{
     NFT, TOKEN, VK,
 };
 use itertools::Itertools;
-use jolt::{host::ELFInstruction, Jolt, JoltHyperKZGProof, JoltPreprocessing, RV32IJoltVM, F, PCS};
+use jolt::{
+    host::ELFInstruction, Jolt, JoltHyperKZGProof, JoltPreprocessing, ProofTranscript, RV32IJoltVM,
+    F, PCS,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -21,11 +24,11 @@ pub fn validate(tx: &Transaction, witness: &Witness, vks: &VKs) -> Result<()> {
 
     for app_id in app_ids {
         match &app_id.tag {
-            TOKEN if token_amounts_balanced(app_id, tx) => {
-                return Ok(());
+            TOKEN if token_amounts_balanced(app_id, tx) == Some(true) => {
+                continue;
             }
             NFT if nft_state_preserved(app_id, tx) => {
-                return Ok(());
+                continue;
             }
             _ => {}
         }
@@ -90,7 +93,7 @@ impl Proof for WrappedProof {
         } = vk.clone();
 
         dbg!("preprocessing");
-        let preproc: JoltPreprocessing<4, F, PCS> =
+        let preproc: JoltPreprocessing<4, F, PCS, ProofTranscript> =
             RV32IJoltVM::preprocess(bytecode, memory_init, 1 << 20, 1 << 20, 1 << 20);
 
         let JoltHyperKZGProof { proof, commitments } = self.proof;
