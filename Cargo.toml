@@ -7,9 +7,16 @@ license = "MIT"
 [dependencies]
 anyhow = { version = "1.0.0" }
 ark-serialize = { version = "0.4.0" }
-bitcoin = { version = "0.32.0" }
+bip32 = { version = "0.5.0" }
+bitcoin = { version = "0.32.0", features= ["rand", "rand-std"] }
 charms-data = { path = "./charms-data" }
 itertools = "0.13.0"
 jolt = { package = "jolt-sdk", git = "https://github.com/sigma0-dev/jolt", branch = "private-attribute", features = ["host"] }
 postcard = { version = "1.0.8", default-features = false, features = ["use-std"] }
 serde = { version = "1.0.0", features = ["derive"] }
+rand = "0.8.5"
+
+[patch.crates-io]
+ark-ff = { git = "https://github.com/a16z/arkworks-algebra", branch = "optimize/field-from-u64" }
+ark-ec = { git = "https://github.com/a16z/arkworks-algebra", branch = "optimize/field-from-u64" }
+ark-serialize = { git = "https://github.com/a16z/arkworks-algebra", branch = "optimize/field-from-u64" }

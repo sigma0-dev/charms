@@ -23,7 +23,7 @@ pub fn validate(tx: &Transaction, witness: &Witness, vks: &VKs) -> Result<()> {
         .collect::<BTreeSet<_>>();
 
     for app_id in app_ids {
-        match &app_id.tag {
+        match app_id.tag.as_slice() {
             TOKEN if token_amounts_balanced(app_id, tx) == Some(true) => {
                 continue;
             }
@@ -43,7 +43,8 @@ pub fn validate(tx: &Transaction, witness: &Witness, vks: &VKs) -> Result<()> {
             .get(&app_id.vk_hash)
             .ok_or_else(|| anyhow!("VK missing for key {:?}", app_id))?;
 
-        proof.verify(app_id, vk.try_into()?, tx, &witness_data.public_input)?;
+        todo!()
+        // proof.verify(app_id, vk.into(), tx, &witness_data.public_input)?;
     }
 
     Ok(())
@@ -70,8 +71,9 @@ impl TryFrom<&Data> for WrappedProof {
 
     fn try_from(value: &Data) -> std::result::Result<Self, Self::Error> {
         // deserialize proof from data
-        let proof = JoltHyperKZGProof::deserialize_compressed(&value)?;
-        Ok(Self { proof })
+        todo!()
+        // let proof = JoltHyperKZGProof::deserialize_compressed(value)?;
+        // Ok(Self { proof })
     }
 }
 
@@ -125,6 +127,7 @@ impl TryFrom<&VK> for WrappedVK {
 
 impl WrappedVK {
     pub fn hash(&self) -> &VkHash {
-        Hash::hash(&postcard::to_stdvec(self).unwrap()).as_ref()
+        todo!()
+        // Hash::hash(&postcard::to_stdvec(self).unwrap()).as_ref()
     }
 }

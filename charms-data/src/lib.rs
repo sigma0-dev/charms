@@ -3,6 +3,7 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use anyhow::{ensure, Error, Result};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
@@ -60,8 +61,8 @@ impl TryFrom<&[u8]> for UtxoId {
     fn try_from(bs: &[u8]) -> Result<Self, Self::Error> {
         ensure!(bs.len() == 36);
 
-        let txid = bs[0..32].try_into().or_else(|_| unreachable!())?;
-        let vout = u32::from_le_bytes(bs[32..36].try_into().or_else(|_| unreachable!())?);
+        let txid = bs[0..32].try_into().unwrap();
+        let vout = u32::from_le_bytes(bs[32..36].try_into().unwrap());
 
         Ok(Self::new(txid, vout))
     }
@@ -88,7 +89,19 @@ pub type VkHash = [u8; 32];
 
 pub type VK = Data;
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(
+    Clone,
+    Debug,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Serialize,
+    Deserialize,
+    CanonicalSerialize,
+    CanonicalDeserialize,
+)]
 pub struct Data(pub Vec<u8>);
 
 impl Data {
