@@ -1,14 +1,30 @@
+use crate::spells::Spell;
 use bitcoin::{
     bip32::{DerivationPath, Xpriv},
-    key::{Keypair, Parity, UntweakedKeypair},
-    opcodes::all::{OP_2DROP, OP_CHECKSIG, OP_DROP},
+    constants::MAX_SCRIPT_ELEMENT_SIZE,
+    hashes::{sha256, Hash},
+    key::{Keypair, Parity, TweakedPublicKey, UntweakedKeypair},
+    opcodes::{
+        all::{
+            OP_2DROP, OP_CHECKSIG, OP_CHECKSIGVERIFY, OP_DROP, OP_ENDIF, OP_EQUAL, OP_EQUALVERIFY,
+            OP_IF, OP_SHA256,
+        },
+        OP_FALSE,
+    },
+    script::{Builder, PushBytes},
     secp256k1::Secp256k1,
     taproot::{ControlBlock, LeafVersion, TaprootBuilder, TaprootSpendInfo},
-    Address, Network, PrivateKey, PublicKey, ScriptBuf, XOnlyPublicKey,
+    Address, Network, PrivateKey, PublicKey, ScriptBuf, WitnessProgram, XOnlyPublicKey,
 };
+use charms_data::Data;
+use serde::Serialize;
 
-pub fn magic_address(public_key: XOnlyPublicKey, network: Network) -> Address {
-    Address::p2tr_tweaked(taproot_spend_info(public_key).output_key(), network)
+pub fn magic_address(public_key: XOnlyPublicKey, network: Network, script: ScriptBuf) -> Address {
+    Address::from_witness_program(spell_witness_program(public_key, script), network)
+}
+
+pub fn spell_witness_program(public_key: XOnlyPublicKey, script: ScriptBuf) -> WitnessProgram {
+    WitnessProgram::p2tr_tweaked(taproot_spend_info(public_key, script).output_key())
 }
 
 pub fn derive_private_key(
@@ -23,24 +39,35 @@ pub fn derive_private_key(
     PrivateKey::new(private_key, network)
 }
 
-pub fn control_block(public_key: XOnlyPublicKey) -> ControlBlock {
-    taproot_spend_info(public_key)
-        .control_block(&(spend_script(public_key), LeafVersion::TapScript))
+pub fn control_block(public_key: XOnlyPublicKey, script: ScriptBuf) -> ControlBlock {
+    taproot_spend_info(public_key, script.clone())
+        .control_block(&(script, LeafVersion::TapScript))
         .unwrap()
 }
 
-pub fn spend_script(public_key: XOnlyPublicKey) -> ScriptBuf {
-    ScriptBuf::builder()
-        .push_opcode(OP_2DROP) // drop "spell", <spell_data>
+pub fn data_script(public_key: XOnlyPublicKey, data: &Vec<u8>) -> ScriptBuf {
+    let builder = ScriptBuf::builder();
+    push_envelope(builder, data)
         .push_slice(public_key.serialize())
         .push_opcode(OP_CHECKSIG)
         .into_script()
 }
 
-fn taproot_spend_info(public_key: XOnlyPublicKey) -> TaprootSpendInfo {
+fn push_envelope(builder: Builder, data: &Vec<u8>) -> Builder {
+    let mut builder = builder
+        .push_opcode(OP_FALSE)
+        .push_opcode(OP_IF)
+        .push_slice(b"spell");
+    for chunk in data.chunks(MAX_SCRIPT_ELEMENT_SIZE) {
+        builder = builder.push_slice::<&PushBytes>(chunk.try_into().unwrap());
+    }
+    builder.push_opcode(OP_ENDIF)
+}
+
+pub fn taproot_spend_info(public_key: XOnlyPublicKey, script: ScriptBuf) -> TaprootSpendInfo {
     let secp256k1 = Secp256k1::new();
     TaprootBuilder::new()
-        .add_leaf(0, spend_script(public_key))
+        .add_leaf(0, script)
         .unwrap()
         .finalize(&secp256k1, public_key)
         .unwrap()
@@ -52,7 +79,7 @@ mod tests {
     use itertools::Itertools;
     use std::str::FromStr;
 
-    const NETWORK: Network = Network::Testnet4;
+    pub const NETWORK: Network = Network::Testnet4;
 
     // original address: tb1p38tsza94t9pak7g52zku06c7r9jqcjx67l4r7d7ehw0ch8fm8cysknej4p
 
@@ -69,7 +96,5 @@ mod tests {
 
         let secp256k1 = Secp256k1::new();
         let keypair = Keypair::from_secret_key(&secp256k1, &new_priv_key.inner);
-
-        dbg!(magic_address(XOnlyPublicKey::from_keypair(&keypair).0, NETWORK).to_string());
     }
 }
