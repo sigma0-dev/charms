@@ -37,7 +37,7 @@ pub fn add_spell(
     spell: &Spell,
     funding_out_point: OutPoint,
     funding_output_value: Amount,
-    change_address: Address,
+    change_script_pubkey: ScriptBuf,
     fee_rate: FeeRate,
 ) -> [Transaction; 2] {
     let mut tx = tx;
@@ -90,7 +90,7 @@ pub fn add_spell(
         // dust limit
         tx.output.push(TxOut {
             value: change_amount,
-            script_pubkey: change_address.script_pubkey(),
+            script_pubkey: change_script_pubkey,
         });
     }
 
@@ -179,7 +179,8 @@ mod tests {
             Amount::from_sat(494000),
             Address::from_str("tb1pgkwtn34z7kz4kuzaxpp6yx6n2qnykret97np0j8xqpk938qx6t4sza9lyf")
                 .unwrap()
-                .assume_checked(),
+                .assume_checked()
+                .script_pubkey(),
             FeeRate::from_sat_per_vb(1u64).unwrap(),
         );
 
