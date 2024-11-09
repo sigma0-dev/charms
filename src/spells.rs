@@ -1,4 +1,4 @@
-use crate::address::{control_block, data_script, taproot_spend_info};
+use crate::script::{control_block, data_script, taproot_spend_info};
 use bitcoin::{
     self,
     absolute::LockTime,
@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     fn test_add_spell() {
-        let tx_hex = "020000000113be81060725ffa5f2764aeecbc6312c030525e8c1f4541067748fea255423f00100000000fdffffff021027000000000000225120a94135dccd5b2734ca9af5c19f79feea419cf066c20c814daeed41a24c244dd457280700000000002251204f07be0503523927737f3c075a9035f2abb33f8f14c9036f6e0af3dde111d41c00000000";
+        let tx_hex = "02000000012f7d19323990772b01a9efc34f29bb110b1df2cd4acb2c1fd64dbd56ac0027f70100000000fdffffff02102700000000000022512002a094075fa87e65564ef2e9be5f1d9bb2c2c68060694fa9f262b134f7b3852b110007000000000022512035110fe9264022566504564fcfb0ce154bf5b66e4476739d5ffe7736afab798400000000";
         let tx = deserialize_hex::<Transaction>(tx_hex).unwrap();
 
         let [commit_tx, tx] = add_spell(
@@ -212,13 +212,13 @@ mod tests {
             &Spell(Data(b"awesome-spell".to_vec())),
             OutPoint {
                 txid: Txid::from_str(
-                    "f0235425ea8f74671054f4c1e82505032c31c6cbee4a76f2a5ff25070681be13",
+                    "f72700ac56bd4dd61f2ccb4acdf21d0b11bb294fc3efa9012b77903932197d2f",
                 )
                 .unwrap(),
                 vout: 0,
             },
             Amount::from_sat(10000),
-            Address::from_str("tb1py54d5l6y9y4uszgaj05wv4su2tnedvstny9y0va940d0h5upezjq84m89p")
+            Address::from_str("tb1pn8dcuyac5z5cyck7audhk8gkj6zz4fh4l0jv5cws9w68szyaa3ksqgdanl")
                 .unwrap()
                 .assume_checked()
                 .script_pubkey(),
