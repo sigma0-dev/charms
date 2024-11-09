@@ -19,14 +19,20 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Spell(pub Data);
 
-/// Create `commit_spell_tx` which creates a Tapscript output. Append an input spending this output
-/// to `tx`. `spell` is thus added to `tx`.
+/// `add_spell` adds `spell` to `tx`:
+/// 1. it builds `commit_spell_tx` transaction which creates a *committed spell* Tapscript output
+/// 2. then appends an input spending the *committed spell* to `tx`, and adds a witness for it.
+///
 /// `fee_rate` is used to compute the amount of sats necessary to fund this, which is exactly the
 /// amount of the created Tapscript output.
 ///
+/// `tx` (prior to modification) is assumed to already include the fee at `fee_rate`:
+/// we're simply adding an input (and a change output) while maintaining the same fee rate for the
+/// modified `tx`.
+///
 /// Return `[commit_spell_tx, tx]`.
-/// `commit_spell_tx` needs to be funded: additional inputs must be **appended** to its list of
-/// inputs.
+///
+/// Both `commit_spell_tx` and `tx` need to be signed.
 pub fn add_spell(
     tx: Transaction,
     spell: &Spell,
@@ -80,8 +86,13 @@ pub fn add_spell(
 fn compute_fee(fee_rate: FeeRate, script_len: usize) -> Amount {
     // script input: (41 * 4) + (L + 99) = 164 + L + 99 = L + 263 wu
     // change output: 42 * 4 = 168 wu
-    let weight = Weight::from_witness_data_size(script_len as u64) + Weight::from_wu(263 + 168);
-    fee_rate.fee_wu(weight).unwrap()
+    let added_weight =
+        Weight::from_witness_data_size(script_len as u64) + Weight::from_wu(263 + 168);
+
+    // CPFP paying for commit_tx (111 vB) minus (already paid) relay fee of 111 sats
+    let commit_tx_fee_cpfp = fee_rate.fee_vb(111).unwrap() - Amount::from_sat(111);
+
+    fee_rate.fee_wu(added_weight).unwrap() + commit_tx_fee_cpfp
 }
 
 fn create_commit_tx(
@@ -211,7 +222,7 @@ mod tests {
                 .unwrap()
                 .assume_checked()
                 .script_pubkey(),
-            FeeRate::from_sat_per_vb(1u64).unwrap(),
+            FeeRate::from_sat_per_vb(2u64).unwrap(),
         );
 
         let commit_tx_hex = serialize_hex(dbg!(&commit_tx));
