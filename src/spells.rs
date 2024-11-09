@@ -1,21 +1,16 @@
-use crate::address::{
-    control_block, data_script, magic_address, spell_witness_program, taproot_spend_info,
-};
-use anyhow::Result;
+use crate::address::{control_block, data_script, taproot_spend_info};
 use bitcoin::{
     self,
     absolute::LockTime,
-    hex,
     hex::FromHex,
     key::Secp256k1,
-    opcodes, script,
-    script::PushBytesBuf,
     secp256k1::{schnorr, Keypair, Message},
     sighash::{Prevouts, SighashCache},
-    taproot::{LeafVersion, Signature},
+    taproot,
+    taproot::LeafVersion,
     transaction::Version,
-    Address, Amount, FeeRate, OutPoint, PrivateKey, ScriptBuf, Sequence, TapLeafHash,
-    TapSighashType, Transaction, TxIn, TxOut, Weight, Witness, XOnlyPublicKey,
+    Address, Amount, FeeRate, OutPoint, ScriptBuf, TapLeafHash, TapSighashType, Transaction, TxIn,
+    TxOut, Txid, Weight, Witness, XOnlyPublicKey,
 };
 use charms_data::Data;
 use rand::thread_rng;
@@ -40,21 +35,62 @@ pub fn add_spell(
     change_script_pubkey: ScriptBuf,
     fee_rate: FeeRate,
 ) -> [Transaction; 2] {
-    let mut tx = tx;
-
     let secp256k1 = Secp256k1::new();
-
     let keypair = Keypair::new(&secp256k1, &mut thread_rng());
     let (public_key, _) = XOnlyPublicKey::from_keypair(&keypair);
 
     let spell_data = postcard::to_stdvec(spell).unwrap();
     let script = data_script(public_key, &spell_data);
+    let fee = compute_fee(fee_rate, script.len());
 
-    let script_len = script.len();
+    let mut tx = tx;
 
-    const RELAY_FEE: Amount = Amount::from_sat(111);
+    let (commit_spell_tx, committed_spell_txout) =
+        create_commit_tx(funding_out_point, funding_output_value, public_key, &script);
+    let commit_spell_txid = commit_spell_tx.compute_txid();
+    let change_amount = committed_spell_txout.value - fee;
 
-    let fee = compute_fee(fee_rate, script_len);
+    modify_tx(
+        &mut tx,
+        commit_spell_txid,
+        change_script_pubkey,
+        change_amount,
+    );
+    let spell_input = tx.input.len() - 1;
+
+    let signature = create_tx_signature(
+        keypair,
+        &mut tx,
+        spell_input,
+        &committed_spell_txout,
+        &script,
+    );
+
+    append_witness_data(
+        &mut tx.input[spell_input].witness,
+        public_key,
+        script,
+        signature,
+    );
+
+    [commit_spell_tx, tx]
+}
+
+/// fee covering only the marginal cost of spending the committed spell output.
+fn compute_fee(fee_rate: FeeRate, script_len: usize) -> Amount {
+    // script input: (41 * 4) + (L + 99) = 164 + L + 99 = L + 263 wu
+    // change output: 42 * 4 = 168 wu
+    let weight = Weight::from_witness_data_size(script_len as u64) + Weight::from_wu(263 + 168);
+    fee_rate.fee_wu(weight).unwrap()
+}
+
+fn create_commit_tx(
+    funding_out_point: OutPoint,
+    funding_output_value: Amount,
+    public_key: XOnlyPublicKey,
+    script: &ScriptBuf,
+) -> (Transaction, TxOut) {
+    const RELAY_FEE: Amount = Amount::from_sat(111); // assuming spending exactly 1 output via key path
 
     let committed_spell_txout = TxOut {
         value: funding_output_value - RELAY_FEE,
@@ -73,11 +109,18 @@ pub fn add_spell(
         }],
         output: vec![committed_spell_txout.clone()],
     };
+    (commit_spell_tx, committed_spell_txout)
+}
 
-    let spell_input_index = tx.input.len();
+fn modify_tx(
+    tx: &mut Transaction,
+    commit_spell_txid: Txid,
+    change_script_pubkey: ScriptBuf,
+    change_amount: Amount,
+) {
     tx.input.push(TxIn {
         previous_output: OutPoint {
-            txid: commit_spell_tx.compute_txid(),
+            txid: commit_spell_txid,
             vout: 0,
         },
         script_sig: Default::default(),
@@ -85,7 +128,6 @@ pub fn add_spell(
         witness: Witness::new(),
     });
 
-    let change_amount = committed_spell_txout.value - fee;
     if change_amount >= Amount::from_sat(546) {
         // dust limit
         tx.output.push(TxOut {
@@ -93,41 +135,14 @@ pub fn add_spell(
             script_pubkey: change_script_pubkey,
         });
     }
-
-    let signature: schnorr::Signature = create_signature(
-        keypair,
-        &script,
-        &mut tx,
-        spell_input_index,
-        &committed_spell_txout,
-    );
-
-    let witness = &mut tx.input[spell_input_index].witness;
-    witness.push(
-        Signature {
-            signature,
-            sighash_type: TapSighashType::AllPlusAnyoneCanPay,
-        }
-        .to_vec(),
-    );
-    witness.push(script.clone());
-    witness.push(control_block(public_key, script).serialize());
-
-    [commit_spell_tx, tx]
 }
 
-/// fee covering only the marginal cost of spending the committed spell output.
-fn compute_fee(fee_rate: FeeRate, script_len: usize) -> Amount {
-    let weight = Weight::from_witness_data_size(script_len as u64) + Weight::from_wu(702);
-    fee_rate.fee_wu(weight).unwrap()
-}
-
-fn create_signature(
+fn create_tx_signature(
     keypair: Keypair,
-    script: &ScriptBuf,
     tx: &mut Transaction,
     input_index: usize,
     prev_out: &TxOut,
+    script: &ScriptBuf,
 ) -> schnorr::Signature {
     let mut sighash_cache = SighashCache::new(tx);
     let sighash = sighash_cache
@@ -148,13 +163,28 @@ fn create_signature(
     signature
 }
 
+fn append_witness_data(
+    witness: &mut Witness,
+    public_key: XOnlyPublicKey,
+    script: ScriptBuf,
+    signature: schnorr::Signature,
+) {
+    witness.push(
+        taproot::Signature {
+            signature,
+            sighash_type: TapSighashType::AllPlusAnyoneCanPay,
+        }
+        .to_vec(),
+    );
+    witness.push(script.clone());
+    witness.push(control_block(public_key, script).serialize());
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use bitcoin::{
         consensus::encode::{deserialize_hex, serialize_hex},
-        hex::DisplayHex,
-        opcodes::all::OP_PUSHNUM_1,
         Amount, Network, Txid,
     };
     use std::str::FromStr;
@@ -163,7 +193,7 @@ mod tests {
 
     #[test]
     fn test_add_spell() {
-        let tx_hex = "020000000146d21179c0a2036e4eb1fa8f18b6f6f9dd785a1f87e67dfdede73a0c237227930000000000fdffffff01e8030000000000002251201ff2305008a9ebf588f5e2fdfdff0be266bd051fadb3d869b84a3bf7ce6374d800000000";
+        let tx_hex = "020000000113be81060725ffa5f2764aeecbc6312c030525e8c1f4541067748fea255423f00100000000fdffffff021027000000000000225120a94135dccd5b2734ca9af5c19f79feea419cf066c20c814daeed41a24c244dd457280700000000002251204f07be0503523927737f3c075a9035f2abb33f8f14c9036f6e0af3dde111d41c00000000";
         let tx = deserialize_hex::<Transaction>(tx_hex).unwrap();
 
         let [commit_tx, tx] = add_spell(
@@ -171,13 +201,13 @@ mod tests {
             &Spell(Data(b"awesome-spell".to_vec())),
             OutPoint {
                 txid: Txid::from_str(
-                    "e36ef9e4f618463ddf6bcbc23e691a0f9e3ae590c770c06a7b92c5d29be7f9f3",
+                    "f0235425ea8f74671054f4c1e82505032c31c6cbee4a76f2a5ff25070681be13",
                 )
                 .unwrap(),
-                vout: 1,
+                vout: 0,
             },
-            Amount::from_sat(494000),
-            Address::from_str("tb1pgkwtn34z7kz4kuzaxpp6yx6n2qnykret97np0j8xqpk938qx6t4sza9lyf")
+            Amount::from_sat(10000),
+            Address::from_str("tb1py54d5l6y9y4uszgaj05wv4su2tnedvstny9y0va940d0h5upezjq84m89p")
                 .unwrap()
                 .assume_checked()
                 .script_pubkey(),
@@ -193,15 +223,5 @@ mod tests {
 
         let tx_hex = serialize_hex(&tx);
         dbg!(tx_hex);
-
-        // let [_, tx] = add_spell(
-        //     &Spell(Data(b"awesome-spell".to_vec())),
-        //     tx,
-        //     &[prev_tx_out],
-        //     0,
-        // );
-        //
-        // let tx_with_spell = serialize_hex(&tx);
-        // dbg!(tx_with_spell);
     }
 }
