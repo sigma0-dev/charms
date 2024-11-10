@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use bitcoin::{
     consensus::encode::{deserialize_hex, serialize_hex},
-    Amount, FeeRate, OutPoint, ScriptBuf, Transaction,
+    Amount, FeeRate, OutPoint, Transaction,
 };
 use charms::spells::{add_spell, Spell};
 use clap::{Parser, Subcommand};
