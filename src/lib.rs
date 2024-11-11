@@ -1,3 +1,3 @@
 mod script;
-pub mod spells;
+pub mod tx;
 pub mod validation;

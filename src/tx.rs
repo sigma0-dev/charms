@@ -35,7 +35,7 @@ pub struct Spell(pub Data);
 /// Both `commit_spell_tx` and `tx` need to be signed.
 pub fn add_spell(
     tx: Transaction,
-    spell: &Spell,
+    spell_data: &[u8],
     funding_out_point: OutPoint,
     funding_output_value: Amount,
     change_script_pubkey: ScriptBuf,
@@ -45,7 +45,6 @@ pub fn add_spell(
     let keypair = Keypair::new(&secp256k1, &mut thread_rng());
     let (public_key, _) = XOnlyPublicKey::from_keypair(&keypair);
 
-    let spell_data = postcard::to_stdvec(spell).unwrap();
     let script = data_script(public_key, &spell_data);
     let fee = compute_fee(fee_rate, script.len());
 
@@ -209,7 +208,7 @@ mod tests {
 
         let [commit_tx, tx] = add_spell(
             dbg!(tx),
-            &Spell(Data(b"awesome-spell".to_vec())),
+            b"awesome-spell",
             OutPoint {
                 txid: Txid::from_str(
                     "f72700ac56bd4dd61f2ccb4acdf21d0b11bb294fc3efa9012b77903932197d2f",

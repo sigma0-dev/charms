@@ -3,7 +3,7 @@ use bitcoin::{
     consensus::encode::{deserialize_hex, serialize_hex},
     Amount, FeeRate, OutPoint, Transaction,
 };
-use charms::spells::{add_spell, Spell};
+use charms::tx::{add_spell, Spell};
 use clap::{Parser, Subcommand};
 use std::{io::Read, str::FromStr};
 
@@ -104,7 +104,7 @@ fn tx_add_spell(
     // Call the add_spell function
     let transactions = add_spell(
         tx,
-        &spell,
+        &spell.0 .0,
         funding_utxo,
         funding_utxo_value,
         change_script_pubkey,

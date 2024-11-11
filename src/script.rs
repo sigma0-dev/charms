@@ -17,7 +17,7 @@ pub fn control_block(public_key: XOnlyPublicKey, script: ScriptBuf) -> ControlBl
         .unwrap()
 }
 
-pub fn data_script(public_key: XOnlyPublicKey, data: &Vec<u8>) -> ScriptBuf {
+pub fn data_script(public_key: XOnlyPublicKey, data: &[u8]) -> ScriptBuf {
     let builder = ScriptBuf::builder();
     push_envelope(builder, data)
         .push_slice(public_key.serialize())
@@ -25,7 +25,7 @@ pub fn data_script(public_key: XOnlyPublicKey, data: &Vec<u8>) -> ScriptBuf {
         .into_script()
 }
 
-fn push_envelope(builder: Builder, data: &Vec<u8>) -> Builder {
+fn push_envelope(builder: Builder, data: &[u8]) -> Builder {
     let mut builder = builder
         .push_opcode(OP_FALSE)
         .push_opcode(OP_IF)

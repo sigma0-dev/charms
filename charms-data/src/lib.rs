@@ -125,8 +125,8 @@ impl From<u64> for Data {
     }
 }
 
-pub const TOKEN: &[u8] = b"TOKEN";
-pub const NFT: &[u8] = b"NFT";
+pub const TOKEN: &[u8] = b"token";
+pub const NFT: &[u8] = b"nft";
 
 pub fn token_amounts_balanced(app_id: &AppId, tx: &Transaction) -> Option<bool> {
     match (
@@ -175,6 +175,7 @@ pub fn sum_token_amount(self_app_id: &AppId, utxos: &[Utxo]) -> Result<u64> {
     Ok(in_amount)
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 
