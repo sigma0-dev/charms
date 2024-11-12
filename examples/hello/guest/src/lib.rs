@@ -74,7 +74,7 @@ fn can_update_nft_state(
     match app_state_multiset(app_id, &tx.ins).len() {
         0 => {
             // minting a new NFT
-            if contains_utxo_id(&utxo_id(&app_id.prefix), &tx.ins) {
+            if contains_utxo_id(&app_id.id, &tx.ins) {
                 // can only mint an NFT with app_id.prefix ==
                 // spent UTXO_ID
                 return false;
@@ -99,13 +99,6 @@ fn contains_utxo_id(expected_id: &UtxoId, utxos: &Vec<Utxo>) -> bool {
         .next();
     let result = spent_utxo_id.is_none();
     result
-}
-
-fn utxo_id(bytes: &[u8]) -> UtxoId {
-    UtxoId {
-        txid: bytes[0..32].try_into().unwrap(),
-        vout: bytes[32].into(),
-    }
 }
 
 // impl From<&Data> for String {

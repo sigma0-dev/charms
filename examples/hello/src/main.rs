@@ -1,5 +1,5 @@
 use ark_serialize::CanonicalSerialize;
-use charms_data::{AppId, Charm, Data, Transaction, Utxo, UtxoId, TOKEN};
+use charms_data::{AppId, Charm, Data, Transaction, Utxo, UtxoId, VkHash, TOKEN};
 use jolt::{Jolt, JoltCommitments, RV32IJoltProof, RV32IJoltVM, F, PCS};
 
 pub fn main() {
@@ -7,13 +7,13 @@ pub fn main() {
 
     let token_app_id = AppId {
         tag: TOKEN.to_vec(),
-        prefix: vec![],
-        vk_hash: [0u8; 32],
+        id: UtxoId::default(),
+        vk_hash: VkHash::default(),
     };
 
     let tx = Transaction {
         ins: vec![Utxo {
-            id: Some(UtxoId::empty()),
+            id: Some(UtxoId::default()),
             charm: Charm::from([(token_app_id.clone(), 1u64.into())]),
         }],
         refs: vec![],

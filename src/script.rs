@@ -9,7 +9,6 @@ use bitcoin::{
     taproot::{ControlBlock, LeafVersion, TaprootBuilder, TaprootSpendInfo},
     ScriptBuf, XOnlyPublicKey,
 };
-use serde::Serialize;
 
 pub fn control_block(public_key: XOnlyPublicKey, script: ScriptBuf) -> ControlBlock {
     taproot_spend_info(public_key, script.clone())

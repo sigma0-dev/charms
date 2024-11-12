@@ -2,22 +2,16 @@ use crate::script::{control_block, data_script, taproot_spend_info};
 use bitcoin::{
     self,
     absolute::LockTime,
-    hex::FromHex,
     key::Secp256k1,
     secp256k1::{schnorr, Keypair, Message},
     sighash::{Prevouts, SighashCache},
     taproot,
     taproot::LeafVersion,
     transaction::Version,
-    Address, Amount, FeeRate, OutPoint, ScriptBuf, TapLeafHash, TapSighashType, Transaction, TxIn,
-    TxOut, Txid, Weight, Witness, XOnlyPublicKey,
+    Amount, FeeRate, OutPoint, ScriptBuf, TapLeafHash, TapSighashType, Transaction, TxIn, TxOut,
+    Txid, Weight, Witness, XOnlyPublicKey,
 };
-use charms_data::Data;
 use rand::thread_rng;
-use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Spell(pub Data);
 
 /// `add_spell` adds `spell` to `tx`:
 /// 1. it builds `commit_spell_tx` transaction which creates a *committed spell* Tapscript output
@@ -195,11 +189,9 @@ mod tests {
     use super::*;
     use bitcoin::{
         consensus::encode::{deserialize_hex, serialize_hex},
-        Amount, Network, Txid,
+        Amount, Txid,
     };
     use std::str::FromStr;
-
-    pub const NETWORK: Network = Network::Testnet4;
 
     #[test]
     fn test_add_spell() {
@@ -225,7 +217,6 @@ mod tests {
         );
 
         let commit_tx_hex = serialize_hex(dbg!(&commit_tx));
-        let serialized = bitcoin::consensus::encode::serialize(&commit_tx);
 
         dbg!(&commit_tx_hex);
         let decoded_commit_tx = deserialize_hex::<Transaction>(commit_tx_hex.as_ref()).unwrap();
