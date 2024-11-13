@@ -189,7 +189,7 @@ mod tests {
     use super::*;
     use bitcoin::{
         consensus::encode::{deserialize_hex, serialize_hex},
-        Amount, Txid,
+        Address, Amount, Txid,
     };
     use std::str::FromStr;
 

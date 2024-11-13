@@ -121,7 +121,7 @@ impl TryFrom<&VK> for WrappedVK {
     type Error = anyhow::Error;
 
     fn try_from(value: &VK) -> std::result::Result<Self, Self::Error> {
-        postcard::from_bytes(&value.0).map_err(Into::into)
+        postcard::from_bytes(&value).map_err(Into::into)
     }
 }
 

@@ -9,8 +9,8 @@ anyhow = { version = "1.0.0" }
 ark-serialize = { version = "0.4.0" }
 bitcoin = { version = "0.32.0", features= ["rand", "rand-std"] }
 charms-data = { path = "./charms-data" }
-ciborium = { version = "0.2", default-features = false }
-ciborium-io = { version = "0.2.2", features = ["std"] }
+ciborium = { version = "0.2.0", default-features = false }
+ciborium-io = { version = "0.2.0", features = ["std"] }
 clap = { version = "4.5.0", features = ["derive"] }
 itertools = "0.13.0"
 jolt = { package = "jolt-sdk", git = "https://github.com/sigma0-dev/jolt", branch = "private-attribute", features = ["host"] }

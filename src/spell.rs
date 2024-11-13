@@ -47,6 +47,7 @@ pub struct Spell {
 #[cfg(test)]
 mod test {
     use crate::spell::CompactCharm;
+    use charms_data::{AppId, TOKEN};
 
     #[test]
     fn deserialize_compact_charm() {
@@ -57,5 +58,25 @@ $TOAD: 9
 
         let charm = serde_yaml::from_str::<CompactCharm>(y).unwrap();
         dbg!(charm);
+    }
+
+    #[test]
+    fn app_id_postcard() {
+        use postcard;
+
+        let app_id_orig = AppId {
+            tag: TOKEN.to_vec(),
+            id: Default::default(),
+            vk_hash: Default::default(),
+        };
+
+        let mut buf = [0u8; 100];
+
+        postcard::to_slice(&app_id_orig, &mut buf).unwrap();
+
+        let mut buf = buf.as_slice();
+
+        let (app_id, buf) = postcard::take_from_bytes::<AppId>(buf).unwrap();
+        assert_eq!(app_id, app_id_orig);
     }
 }

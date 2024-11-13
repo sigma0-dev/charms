@@ -2,7 +2,6 @@ pub mod spell;
 pub mod tx;
 
 use clap::{Parser, Subcommand};
-use std::{io::Read, str::FromStr};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]

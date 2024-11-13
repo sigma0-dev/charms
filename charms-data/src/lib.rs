@@ -1,16 +1,16 @@
 #![no_std]
 extern crate alloc;
 
-use alloc::{format, string::String, vec, vec::Vec};
-use anyhow::{ensure, Error, Result};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use alloc::{format, string::String, vec::Vec};
+use anyhow::{anyhow, ensure, Error, Result};
 use ark_std::collections::BTreeMap;
-use core::fmt;
+use ciborium::{value::Integer, Value};
+use core::{cmp::Ordering, fmt};
 use serde::{
     de,
-    de::{MapAccess, Visitor},
+    de::{SeqAccess, Visitor},
     ser,
-    ser::SerializeStruct,
+    ser::SerializeTuple,
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
@@ -162,16 +162,16 @@ impl Serialize for AppId {
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            let tag_s = String::from_utf8(self.tag.clone())
+            let tag = String::from_utf8(self.tag.clone())
                 .map_err(|e| ser::Error::custom(format!("invalid utf-8 in tag: {}", e)))?;
-            let id_s = format!("{}:{}", hex::encode(self.id.0), self.id.1);
+            let id = format!("{}:{}", hex::encode(self.id.0), self.id.1);
             let vk_hash = hex::encode(&self.vk_hash.0);
-            serializer.serialize_str(&format!("{}/{}/{}", tag_s, id_s, vk_hash))
+            serializer.serialize_str(&format!("{}/{}/{}", tag, id, vk_hash))
         } else {
-            let mut s = serializer.serialize_struct("AppId", 3)?;
-            s.serialize_field("tag", &self.tag)?;
-            s.serialize_field("id", &self.id)?;
-            s.serialize_field("vk_hash", &self.vk_hash)?;
+            let mut s = serializer.serialize_tuple(3)?;
+            s.serialize_element(&self.tag)?;
+            s.serialize_element(&self.id)?;
+            s.serialize_element(&self.vk_hash)?;
             s.end()
         }
     }
@@ -192,7 +192,7 @@ impl<'de> Deserialize<'de> for AppId {
             }
 
             // Handle human-readable format ("tag_hex/vk_hash_hex")
-            fn visit_str<E>(self, value: &str) -> Result<AppId, E>
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
             where
                 E: de::Error,
             {
@@ -239,44 +239,19 @@ impl<'de> Deserialize<'de> for AppId {
                 Ok(AppId { tag, id, vk_hash })
             }
 
-            // Handle non-human-readable struct format
-            fn visit_map<V>(self, mut map: V) -> Result<AppId, V::Error>
+            fn visit_seq<A>(self, mut seq: A) -> core::result::Result<Self::Value, A::Error>
             where
-                V: MapAccess<'de>,
+                A: SeqAccess<'de>,
             {
-                let mut tag = None;
-                let mut id = None;
-                let mut vk_hash = None;
-
-                while let Some(key) = map.next_key::<String>()? {
-                    match key.as_str() {
-                        "tag" => {
-                            if tag.is_some() {
-                                return Err(de::Error::duplicate_field("tag"));
-                            }
-                            tag = Some(map.next_value()?);
-                        }
-                        "id" => {
-                            if id.is_some() {
-                                return Err(de::Error::duplicate_field("id"));
-                            }
-                            id = Some(map.next_value()?);
-                        }
-                        "vk_hash" => {
-                            if vk_hash.is_some() {
-                                return Err(de::Error::duplicate_field("vk_hash"));
-                            }
-                            vk_hash = Some(map.next_value()?);
-                        }
-                        _ => {
-                            return Err(de::Error::unknown_field(&key, &["tag", "vk_hash"]));
-                        }
-                    }
-                }
-
-                let tag = tag.ok_or_else(|| de::Error::missing_field("tag"))?;
-                let id = id.ok_or_else(|| de::Error::missing_field("id"))?;
-                let vk_hash = vk_hash.ok_or_else(|| de::Error::missing_field("vk_hash"))?;
+                let tag = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::missing_field("tag"))?;
+                let id = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::missing_field("id"))?;
+                let vk_hash = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::missing_field("vk_hash"))?;
 
                 Ok(AppId { tag, id, vk_hash })
             }
@@ -285,7 +260,7 @@ impl<'de> Deserialize<'de> for AppId {
         if deserializer.is_human_readable() {
             deserializer.deserialize_str(AppIdVisitor)
         } else {
-            deserializer.deserialize_map(AppIdVisitor)
+            deserializer.deserialize_tuple(3, AppIdVisitor)
         }
     }
 }
@@ -303,27 +278,22 @@ pub struct WitnessData {
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default, Serialize, Deserialize)]
 pub struct VkHash(pub [u8; 32]);
 
-pub type VK = Data;
+pub type VK = Vec<u8>;
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Hash,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Serialize,
-    Deserialize,
-    CanonicalSerialize,
-    CanonicalDeserialize,
-)]
-pub struct Data(pub Vec<u8>);
+#[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub struct Data(pub Value);
+
+impl Ord for Data {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.partial_cmp(&other.0).unwrap()
+    }
+}
+
+impl Eq for Data {}
 
 impl Data {
     pub fn empty() -> Self {
-        Self(vec![])
+        Self(Value::Null)
     }
 }
 
@@ -331,14 +301,17 @@ impl TryFrom<&Data> for u64 {
     type Error = Error;
 
     fn try_from(value: &Data) -> Result<Self> {
-        ensure!(value.0.len() <= 8);
-        Ok(u64::from_le_bytes(value.clone().0.try_into().unwrap()))
+        let i = value
+            .0
+            .as_integer()
+            .ok_or(anyhow!("cannot convert into u64"))?;
+        Ok(i128::from(i) as u64)
     }
 }
 
 impl From<u64> for Data {
     fn from(value: u64) -> Self {
-        Self(value.to_le_bytes().to_vec())
+        Self(Value::Integer(Integer::from(value)))
     }
 }
 
@@ -395,6 +368,7 @@ pub fn sum_token_amount(self_app_id: &AppId, utxos: &[Utxo]) -> Result<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec;
 
     pub fn zk_meme_token_policy(app_id: &AppId, tx: &Transaction, x: &Data, w: &Data) {
         assert_eq!(app_id.tag, TOKEN);
