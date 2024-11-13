@@ -6,7 +6,7 @@ pub fn main() {
     let (program, prep) = guest::preprocess_zk_meme_token_policy();
 
     let token_app_id = AppId {
-        tag: TOKEN.to_vec(),
+        tag: TOKEN,
         id: UtxoId::default(),
         vk_hash: VkHash::default(),
     };
@@ -23,14 +23,8 @@ pub fn main() {
         }],
     };
 
-    let (output, proof) = guest::prove_zk_meme_token_policy(
-        program,
-        prep.clone(),
-        token_app_id,
-        tx,
-        Data::empty(),
-        Data::empty(),
-    );
+    let (output, proof) =
+        guest::prove_zk_meme_token_policy(program, prep.clone(), token_app_id, tx, (), ());
 
     // let RV32IJoltProof::<F, PCS> {
     //     trace_length,

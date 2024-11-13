@@ -1,20 +1,19 @@
 #![no_std]
+#![feature(auto_traits, negative_impls)]
 extern crate alloc;
 
-use alloc::{format, string::String, vec::Vec};
-use anyhow::{anyhow, ensure, Error, Result};
+use alloc::{boxed::Box, format, vec, vec::Vec};
+use anyhow::{anyhow, Error, Result};
 use ark_std::collections::BTreeMap;
-use ciborium::{value::Integer, Value};
-use core::{cmp::Ordering, fmt};
+use core::{convert::TryInto, fmt};
 use serde::{
     de,
-    de::{SeqAccess, Visitor},
-    ser,
+    de::{DeserializeOwned, SeqAccess, Visitor},
     ser::SerializeTuple,
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Transaction {
     pub ins: Vec<Utxo>,
     pub refs: Vec<Utxo>,
@@ -30,7 +29,7 @@ pub type Witness = BTreeMap<AppId, WitnessData>;
 pub type VKs = BTreeMap<VkHash, VK>;
 
 // UTXO as presented to the validation predicate.
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Utxo {
     pub id: Option<UtxoId>,
     pub charm: Charm,
@@ -136,22 +135,9 @@ impl<'de> Deserialize<'de> for UtxoId {
     }
 }
 
-impl TryFrom<&[u8]> for UtxoId {
-    type Error = Error;
-
-    fn try_from(bs: &[u8]) -> Result<Self, Self::Error> {
-        ensure!(bs.len() == 36);
-
-        let txid = bs[0..32].try_into().unwrap();
-        let vout = u32::from_le_bytes(bs[32..36].try_into().unwrap());
-
-        Ok(Self(txid, vout))
-    }
-}
-
 #[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct AppId {
-    pub tag: Vec<u8>,
+    pub tag: char,
     pub id: UtxoId,
     pub vk_hash: VkHash,
 }
@@ -162,8 +148,7 @@ impl Serialize for AppId {
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            let tag = String::from_utf8(self.tag.clone())
-                .map_err(|e| ser::Error::custom(format!("invalid utf-8 in tag: {}", e)))?;
+            let tag = self.tag;
             let id = format!("{}:{}", hex::encode(self.id.0), self.id.1);
             let vk_hash = hex::encode(&self.vk_hash.0);
             serializer.serialize_str(&format!("{}/{}/{}", tag, id, vk_hash))
@@ -188,7 +173,7 @@ impl<'de> Deserialize<'de> for AppId {
             type Value = AppId;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a string in format 'tag_hex/txid_hex:index_int/vk_hash_hex' or a struct with tag, utxo_id and vk_hash fields")
+                formatter.write_str("a string in format 'tag_char/txid_hex:index_int/vk_hash_hex' or a struct with tag, utxo_id and vk_hash fields")
             }
 
             // Handle human-readable format ("tag_hex/vk_hash_hex")
@@ -200,12 +185,21 @@ impl<'de> Deserialize<'de> for AppId {
                 let parts: Vec<&str> = value.split('/').collect();
                 if parts.len() != 3 {
                     return Err(E::custom(
-                        "expected format: tag_hex/txid_hex:index_int/vk_hash_hex",
+                        "expected format: tag_char/txid_hex:index_int/vk_hash_hex",
                     ));
                 }
 
                 // Decode the hex strings
-                let tag = parts[0].as_bytes().to_vec();
+                let tag: char = {
+                    let mut chars = parts[0].chars();
+                    let Some(tag) = chars.next() else {
+                        return Err(E::custom("expected tag"));
+                    };
+                    let None = chars.next() else {
+                        return Err(E::custom("tag must be a single character"));
+                    };
+                    tag
+                };
 
                 let id = {
                     let utxo_id_parts: Vec<&str> = parts[1].split(':').collect();
@@ -280,43 +274,44 @@ pub struct VkHash(pub [u8; 32]);
 
 pub type VK = Vec<u8>;
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
-pub struct Data(pub Value);
-
-impl Ord for Data {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.0.partial_cmp(&other.0).unwrap()
-    }
-}
-
-impl Eq for Data {}
+#[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub struct Data(Box<[u8]>);
 
 impl Data {
     pub fn empty() -> Self {
-        Self(Value::Null)
+        Self(Box::new([]))
+    }
+
+    pub fn try_into<T: DeserializeOwned>(&self) -> Result<T> {
+        ciborium::de::from_reader(self.0.as_ref())
+            .map_err(|e| anyhow!("failed to convert from Data: {}", e))
+    }
+}
+
+auto trait NotData {}
+impl !NotData for Data {}
+
+impl<T> From<T> for Data
+where
+    T: Serialize + NotData,
+{
+    fn from(value: T) -> Self {
+        let mut data = vec![];
+        ciborium::ser::into_writer(&value, &mut data).unwrap();
+        Self(data.into_boxed_slice())
     }
 }
 
 impl TryFrom<&Data> for u64 {
     type Error = Error;
 
-    fn try_from(value: &Data) -> Result<Self> {
-        let i = value
-            .0
-            .as_integer()
-            .ok_or(anyhow!("cannot convert into u64"))?;
-        Ok(i128::from(i) as u64)
+    fn try_from(data: &Data) -> Result<Self> {
+        data.try_into()
     }
 }
 
-impl From<u64> for Data {
-    fn from(value: u64) -> Self {
-        Self(Value::Integer(Integer::from(value)))
-    }
-}
-
-pub const TOKEN: &[u8] = b"token";
-pub const NFT: &[u8] = b"nft";
+pub const TOKEN: char = 't';
+pub const NFT: char = 'n';
 
 pub fn token_amounts_balanced(app_id: &AppId, tx: &Transaction) -> Option<bool> {
     match (
@@ -387,7 +382,7 @@ mod tests {
     #[test]
     fn test_zk_meme_token_validator() {
         let token_app_id = AppId {
-            tag: TOKEN.to_vec(),
+            tag: TOKEN,
             id: Default::default(),
             vk_hash: Default::default(),
         };

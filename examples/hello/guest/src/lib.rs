@@ -9,97 +9,98 @@ use charms_data::{
 };
 use jolt::provable;
 
-#[provable]
+#[provable(stack_size = 16384)]
 pub fn zk_meme_token_policy(
     app_id: AppId,
     tx: Transaction,
-    x: Data,
-    #[private] w: Data,
-) {
+    _x: (),
+    #[private] _w: (),
+) -> bool {
     assert_eq!(app_id.tag, TOKEN);
     assert!(token_amounts_balanced(&app_id, &tx).unwrap());
+    true
 }
 
-#[provable]
-pub fn example_token_policy(
-    app_id: AppId,
-    tx: Transaction,
-    x: Data,
-    #[private] w: Data,
-) {
-    assert_eq!(app_id.tag, TOKEN);
+// #[provable]
+// pub fn example_token_policy(
+//     app_id: AppId,
+//     tx: Transaction,
+//     x: Data,
+//     #[private] w: Data,
+// ) {
+//     assert_eq!(app_id.tag, TOKEN);
+//
+//     if !token_amounts_balanced(&app_id, &tx).unwrap() {
+//         // enforce token mint/burn policy based on the transaction,
+//         // public and private witness data
+//         assert!(can_mint_or_burn(&app_id, &tx, &x, &w))
+//     }
+// }
 
-    if !token_amounts_balanced(&app_id, &tx).unwrap() {
-        // enforce token mint/burn policy based on the transaction,
-        // public and private witness data
-        assert!(can_mint_or_burn(&app_id, &tx, &x, &w))
-    }
-}
+// #[provable]
+// pub fn example_nft(
+//     app_id: AppId,
+//     tx: Transaction,
+//     x: Data,
+//     #[private] w: Data,
+// ) {
+//     assert_eq!(app_id.tag, NFT);
+//
+//     // if the NFT state is unchanged (it was simply transferred),
+//     // no need to check if we can update the state
+//     if !nft_state_preserved(&app_id, &tx) {
+//         assert!(can_update_nft_state(&app_id, &tx, &x, &w))
+//     }
+// }
 
-#[provable]
-pub fn example_nft(
-    app_id: AppId,
-    tx: Transaction,
-    x: Data,
-    #[private] w: Data,
-) {
-    assert_eq!(app_id.tag, NFT);
-
-    // if the NFT state is unchanged (it was simply transferred),
-    // no need to check if we can update the state
-    if !nft_state_preserved(&app_id, &tx) {
-        assert!(can_update_nft_state(&app_id, &tx, &x, &w))
-    }
-}
-
-fn can_mint_or_burn(
-    self_app_id: &AppId,
-    tx: &Transaction,
-    x: &Data,
-    w: &Data,
-) -> bool {
-    // TODO should be a real public key instead of a bunch of zeros
-    const CREATOR_PUBLIC_KEY: [u8; 64] = [0u8; 64];
-
-    // TODO check the signature in the witness against CREATOR_PUBLIC_KEY
-    false
-}
-
-fn can_update_nft_state(
-    app_id: &AppId,
-    tx: &Transaction,
-    x: &Data,
-    w: &Data,
-) -> bool {
-    match app_state_multiset(app_id, &tx.ins).len() {
-        0 => {
-            // minting a new NFT
-            if contains_utxo_id(&app_id.id, &tx.ins) {
-                // can only mint an NFT with app_id.prefix ==
-                // spent UTXO_ID
-                return false;
-            }
-
-            // TODO: enforce NFT mint policy based on the transaction,
-            //       public and private witness data
-
-            true
-        }
-        _ => false, // can't update existing NFT state
-    }
-}
-
-fn contains_utxo_id(expected_id: &UtxoId, utxos: &Vec<Utxo>) -> bool {
-    let spent_utxo_id = utxos
-        .iter()
-        .filter_map(|utxo| match &utxo.id {
-            Some(id) if id == expected_id => Some(id),
-            _ => None,
-        })
-        .next();
-    let result = spent_utxo_id.is_none();
-    result
-}
+// fn can_mint_or_burn(
+//     self_app_id: &AppId,
+//     tx: &Transaction,
+//     x: &Data,
+//     w: &Data,
+// ) -> bool {
+//     // TODO should be a real public key instead of a bunch of zeros
+//     const CREATOR_PUBLIC_KEY: [u8; 64] = [0u8; 64];
+//
+//     // TODO check the signature in the witness against CREATOR_PUBLIC_KEY
+//     false
+// }
+//
+// fn can_update_nft_state(
+//     app_id: &AppId,
+//     tx: &Transaction,
+//     x: &Data,
+//     w: &Data,
+// ) -> bool {
+//     match app_state_multiset(app_id, &tx.ins).len() {
+//         0 => {
+//             // minting a new NFT
+//             if contains_utxo_id(&app_id.id, &tx.ins) {
+//                 // can only mint an NFT with app_id.prefix ==
+//                 // spent UTXO_ID
+//                 return false;
+//             }
+//
+//             // TODO: enforce NFT mint policy based on the transaction,
+//             //       public and private witness data
+//
+//             true
+//         }
+//         _ => false, // can't update existing NFT state
+//     }
+// }
+//
+// fn contains_utxo_id(expected_id: &UtxoId, utxos: &Vec<Utxo>) -> bool {
+//     let spent_utxo_id = utxos
+//         .iter()
+//         .filter_map(|utxo| match &utxo.id {
+//             Some(id) if id == expected_id => Some(id),
+//             _ => None,
+//         })
+//         .next();
+//     let result = spent_utxo_id.is_none();
+//     result
+// }
 
 // impl From<&Data> for String {
 //     fn from(data: &Data) -> Self {

@@ -23,7 +23,7 @@ pub fn validate(tx: &Transaction, witness: &Witness, vks: &VKs) -> Result<()> {
         .collect::<BTreeSet<_>>();
 
     for app_id in app_ids {
-        match app_id.tag.as_slice() {
+        match app_id.tag {
             TOKEN if token_amounts_balanced(app_id, tx) == Some(true) => {
                 continue;
             }
@@ -95,8 +95,7 @@ impl Proof for WrappedProof {
         } = vk.clone();
 
         dbg!("preprocessing");
-        let preproc: JoltPreprocessing<4, F, PCS, ProofTranscript> =
-            RV32IJoltVM::preprocess(bytecode, memory_init, 1 << 20, 1 << 20, 1 << 20);
+        let preproc: JoltPreprocessing<4, F, PCS, ProofTranscript> = todo!(); // RV32IJoltVM::preprocess(bytecode, memory_init, 1 << 20, 1 << 20, 1 << 20);
 
         let JoltHyperKZGProof { proof, commitments } = self.proof;
 

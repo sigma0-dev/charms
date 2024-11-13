@@ -47,7 +47,9 @@ pub struct Spell {
 #[cfg(test)]
 mod test {
     use crate::spell::CompactCharm;
-    use charms_data::{AppId, TOKEN};
+    use charms_data::{AppId, AppState, Charm, Data, Transaction, Utxo, UtxoId, VkHash, TOKEN};
+    use hex;
+    use std::str::FromStr;
 
     #[test]
     fn deserialize_compact_charm() {
@@ -66,17 +68,66 @@ $TOAD: 9
 
         let app_id_orig = AppId {
             tag: TOKEN.to_vec(),
-            id: Default::default(),
-            vk_hash: Default::default(),
+            id: UtxoId::default(),
+            vk_hash: VkHash::default(),
         };
+
+        let tx_orig = Transaction {
+            ins: vec![Utxo {
+                id: Some(UtxoId::default()),
+                charm: Charm::from([(app_id_orig.clone(), 1u64.into())]),
+            }],
+            refs: vec![],
+            outs: vec![Utxo {
+                id: None,
+                charm: Charm::from([(app_id_orig.clone(), 1u64.into())]),
+            }],
+        };
+
+        let utxo_orig = Utxo {
+            id: Some(UtxoId::default()),
+            charm: Charm::from([(app_id_orig.clone(), 1u64.into())]),
+        };
+
+        let app_state_orig: AppState = 1u64.into();
+
+        let mut buf = [0u8; 4096];
+        let writer: &mut [u8] = &mut buf;
+
+        let writer = postcard::to_io(&app_id_orig, writer).unwrap();
+        let writer = postcard::to_io(&tx_orig, writer).unwrap();
+        let writer = postcard::to_io(&utxo_orig, writer).unwrap();
+        let writer = postcard::to_io(&app_state_orig, writer).unwrap();
+        let writer = postcard::to_io(&Data::empty(), writer).unwrap();
+        let writer = postcard::to_io(&Data::empty(), writer).unwrap();
+
+        let buf: &mut [u8] = &mut buf;
+
+        let (app_id, buf) = postcard::take_from_bytes::<AppId>(buf).unwrap();
+        let (tx, buf) = postcard::take_from_bytes::<Transaction>(buf).unwrap();
+        let (utxo, buf) = postcard::take_from_bytes::<Utxo>(buf).unwrap();
+        let (app_state, buf) = postcard::take_from_bytes::<AppState>(buf).unwrap();
+        let (x, buf) = postcard::take_from_bytes::<Data>(buf).unwrap();
+        let (w, buf) = postcard::take_from_bytes::<Data>(buf).unwrap();
+
+        assert_eq!(app_id, app_id_orig);
+        assert_eq!(tx, tx_orig);
+        assert_eq!(utxo, utxo_orig);
+        assert_eq!(app_state, app_state_orig);
+        assert_eq!(x, Data::empty());
+        assert_eq!(w, Data::empty());
+
+        let hex_bytes =
+            hex::decode("f72700ac56bd4dd61f2ccb4acdf21d0b11bb294fc3efa9012b77903932197d2f")
+                .unwrap();
+        let utxo_id_orig = UtxoId(hex_bytes.try_into().unwrap(), 0);
 
         let mut buf = [0u8; 100];
 
-        postcard::to_slice(&app_id_orig, &mut buf).unwrap();
+        let buf = postcard::to_slice(&utxo_id_orig, &mut buf).unwrap();
+        dbg!(buf.len());
 
-        let mut buf = buf.as_slice();
-
-        let (app_id, buf) = postcard::take_from_bytes::<AppId>(buf).unwrap();
-        assert_eq!(app_id, app_id_orig);
+        let (utxo_id, buf) = postcard::take_from_bytes::<UtxoId>(buf).unwrap();
+        assert_eq!(utxo_id, utxo_id_orig);
     }
 }

@@ -12,6 +12,7 @@ charms-data = { path = "./charms-data" }
 ciborium = { version = "0.2.0", default-features = false }
 ciborium-io = { version = "0.2.0", features = ["std"] }
 clap = { version = "4.5.0", features = ["derive"] }
+hex = { version = "0.4.0" }
 itertools = "0.13.0"
 jolt = { package = "jolt-sdk", git = "https://github.com/sigma0-dev/jolt", branch = "private-attribute", features = ["host"] }
 postcard = { version = "1.0.0", default-features = false, features = ["use-std"] }
