@@ -1,13 +1,15 @@
 use crate::commands::TxCommands;
-use anyhow::anyhow;
+use anyhow::{anyhow, bail, ensure, Result};
 use bitcoin::{
     consensus::encode::{deserialize_hex, serialize_hex},
+    opcodes::all::OP_IF,
+    script::{Instruction, PushBytes},
     Amount, FeeRate, OutPoint, Transaction,
 };
 use charms::{spell::Spell, tx::add_spell};
-use std::{io::Read, str::FromStr};
+use std::str::FromStr;
 
-fn parse_outpoint(s: &str) -> anyhow::Result<OutPoint> {
+fn parse_outpoint(s: &str) -> Result<OutPoint> {
     let parts: Vec<&str> = s.split(':').collect();
     if parts.len() != 2 {
         return Err(anyhow!("Invalid UTXO format. Expected txid:vout"));
@@ -16,21 +18,24 @@ fn parse_outpoint(s: &str) -> anyhow::Result<OutPoint> {
     Ok(OutPoint::new(parts[0].parse()?, parts[1].parse()?))
 }
 
-pub fn tx_add_spell(command: TxCommands) -> anyhow::Result<()> {
+pub fn tx_add_spell(command: TxCommands) -> Result<()> {
     let TxCommands::AddSpell {
         tx,
         funding_utxo_id,
         funding_utxo_value,
         change_address,
         fee_rate,
-    } = command;
+    } = command
+    else {
+        unreachable!()
+    };
 
     // Read spell data from stdin
-    let mut spell_data = Vec::new();
-    std::io::stdin().read_to_end(&mut spell_data)?;
+    let spell: Spell = ciborium::de::from_reader(std::io::stdin())?;
 
-    // Parse spell using postcard
-    let _: Spell = postcard::from_bytes(&spell_data)?;
+    // Serialize spell into CBOR
+    let mut spell_data = vec![];
+    ciborium::ser::into_writer(&spell, &mut spell_data)?;
 
     // Parse transaction from hex
     let tx = deserialize_hex::<Transaction>(&tx)?;
@@ -64,5 +69,38 @@ pub fn tx_add_spell(command: TxCommands) -> anyhow::Result<()> {
 
     // Print JSON array of transaction hexes
     println!("{}", serde_json::to_string(&hex_txs)?);
+    Ok(())
+}
+
+pub(crate) fn tx_extract_spell(command: TxCommands) -> Result<()> {
+    let TxCommands::ExtractSpell { tx } = command else {
+        unreachable!()
+    };
+    let tx = deserialize_hex::<Transaction>(&tx)?;
+
+    let script_data = &tx.input[tx.input.len() - 1].witness[1];
+
+    // Parse script_data into Script
+    let script = bitcoin::blockdata::script::Script::from_bytes(&script_data);
+
+    let mut instructions = script.instructions();
+
+    ensure!(instructions.next() == Some(Ok(Instruction::PushBytes(PushBytes::empty()))));
+    ensure!(instructions.next() == Some(Ok(Instruction::Op(OP_IF))));
+    let Some(Ok(Instruction::PushBytes(push_bytes))) = instructions.next() else {
+        bail!("no spell")
+    };
+    if push_bytes.as_bytes() != b"spell" {
+        bail!("no spell")
+    }
+    let Some(Ok(Instruction::PushBytes(push_bytes))) = instructions.next() else {
+        bail!("no spell")
+    };
+
+    let spell_data = push_bytes.as_bytes();
+    let spell: Spell = ciborium::de::from_reader(spell_data)?;
+
+    ciborium::into_writer(&spell, std::io::stdout())?;
+
     Ok(())
 }

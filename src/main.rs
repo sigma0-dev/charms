@@ -1,3 +1,5 @@
+extern crate core;
+
 mod commands;
 
 use anyhow::Result;
@@ -13,7 +15,8 @@ fn main() -> Result<()> {
             SpellCommands::Print => spell::spell_print(),
         },
         Commands::Tx { command } => match command {
-            command @ TxCommands::AddSpell { .. } => tx::tx_add_spell(command),
+            TxCommands::AddSpell { .. } => tx::tx_add_spell(command),
+            TxCommands::ExtractSpell { .. } => tx::tx_extract_spell(command),
         },
     }
 }

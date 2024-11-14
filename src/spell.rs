@@ -67,7 +67,7 @@ $TOAD: 9
         use postcard;
 
         let app_id_orig = AppId {
-            tag: TOKEN.to_vec(),
+            tag: TOKEN,
             id: UtxoId::default(),
             vk_hash: VkHash::default(),
         };
