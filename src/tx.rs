@@ -190,6 +190,31 @@ fn append_witness_data(
     witness.push(control_block(public_key, script).serialize());
 }
 
+pub fn extract_spell(tx: &Transaction) -> anyhow::Result<Spell, Error> {
+    let script_data = &tx.input[tx.input.len() - 1].witness[1];
+
+    // Parse script_data into Script
+    let script = bitcoin::blockdata::script::Script::from_bytes(&script_data);
+
+    let mut instructions = script.instructions();
+
+    ensure!(instructions.next() == Some(Ok(Instruction::PushBytes(PushBytes::empty()))));
+    ensure!(instructions.next() == Some(Ok(Instruction::Op(OP_IF))));
+    let Some(Ok(Instruction::PushBytes(push_bytes))) = instructions.next() else {
+        bail!("no spell")
+    };
+    if push_bytes.as_bytes() != b"spell" {
+        bail!("no spell")
+    }
+    let Some(Ok(Instruction::PushBytes(push_bytes))) = instructions.next() else {
+        bail!("no spell")
+    };
+
+    let spell_data = push_bytes.as_bytes();
+    let spell: Spell = ciborium::de::from_reader(spell_data)?;
+    Ok(spell)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -231,29 +256,4 @@ mod tests {
         let tx_hex = serialize_hex(&tx);
         dbg!(tx_hex);
     }
-}
-
-pub fn extract_spell(tx: &Transaction) -> anyhow::Result<Spell, Error> {
-    let script_data = &tx.input[tx.input.len() - 1].witness[1];
-
-    // Parse script_data into Script
-    let script = bitcoin::blockdata::script::Script::from_bytes(&script_data);
-
-    let mut instructions = script.instructions();
-
-    ensure!(instructions.next() == Some(Ok(Instruction::PushBytes(PushBytes::empty()))));
-    ensure!(instructions.next() == Some(Ok(Instruction::Op(OP_IF))));
-    let Some(Ok(Instruction::PushBytes(push_bytes))) = instructions.next() else {
-        bail!("no spell")
-    };
-    if push_bytes.as_bytes() != b"spell" {
-        bail!("no spell")
-    }
-    let Some(Ok(Instruction::PushBytes(push_bytes))) = instructions.next() else {
-        bail!("no spell")
-    };
-
-    let spell_data = push_bytes.as_bytes();
-    let spell: Spell = ciborium::de::from_reader(spell_data)?;
-    Ok(spell)
 }
