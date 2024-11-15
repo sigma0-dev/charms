@@ -1,12 +1,10 @@
 use crate::commands::TxCommands;
-use anyhow::{anyhow, bail, ensure, Result};
+use anyhow::{anyhow, Result};
 use bitcoin::{
     consensus::encode::{deserialize_hex, serialize_hex},
-    opcodes::all::OP_IF,
-    script::{Instruction, PushBytes},
     Amount, FeeRate, OutPoint, Transaction,
 };
-use charms::{spell::Spell, tx::add_spell};
+use charms::{spell::Spell, tx, tx::add_spell};
 use std::str::FromStr;
 
 fn parse_outpoint(s: &str) -> Result<OutPoint> {
@@ -78,27 +76,7 @@ pub(crate) fn tx_extract_spell(command: TxCommands) -> Result<()> {
     };
     let tx = deserialize_hex::<Transaction>(&tx)?;
 
-    let script_data = &tx.input[tx.input.len() - 1].witness[1];
-
-    // Parse script_data into Script
-    let script = bitcoin::blockdata::script::Script::from_bytes(&script_data);
-
-    let mut instructions = script.instructions();
-
-    ensure!(instructions.next() == Some(Ok(Instruction::PushBytes(PushBytes::empty()))));
-    ensure!(instructions.next() == Some(Ok(Instruction::Op(OP_IF))));
-    let Some(Ok(Instruction::PushBytes(push_bytes))) = instructions.next() else {
-        bail!("no spell")
-    };
-    if push_bytes.as_bytes() != b"spell" {
-        bail!("no spell")
-    }
-    let Some(Ok(Instruction::PushBytes(push_bytes))) = instructions.next() else {
-        bail!("no spell")
-    };
-
-    let spell_data = push_bytes.as_bytes();
-    let spell: Spell = ciborium::de::from_reader(spell_data)?;
+    let spell = tx::extract_spell(&tx)?;
 
     ciborium::into_writer(&spell, std::io::stdout())?;
 
