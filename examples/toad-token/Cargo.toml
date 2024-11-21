@@ -3,10 +3,6 @@ name = "toad-token-guest"
 version = "0.1.0"
 edition = "2021"
 
-[[bin]]
-name = "toad-token-guest"
-path = "src/lib.rs"
-
 [features]
 default = ["guest"]
 guest = []
@@ -16,11 +12,10 @@ charms-data = { path = "../../charms-data" }
 jolt = { package = "jolt-sdk", git = "https://github.com/sigma0-dev/jolt", branch = "private-attribute" }
 
 [profile.release]
-codegen-units = 1
-debug = 0
 lto = "fat"
-opt-level = "z"
+opt-level = "s"
 panic = "abort"
+strip = "symbols"
 
 [profile.test]
 opt-level = 3

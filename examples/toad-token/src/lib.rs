@@ -1,16 +1,18 @@
 #![cfg_attr(feature = "guest", no_std)]
-#![no_main]
 extern crate alloc;
 
-use charms_data::{token_amounts_balanced, AppId, Charm, Transaction, UtxoId, NFT, TOKEN};
+pub(crate) use charms_data::{
+    token_amounts_balanced, AppId, Charm, Transaction, UtxoId, NFT, TOKEN,
+};
 use jolt::provable;
 
-#[provable]
-pub fn toad_token_policy(self_app_id: AppId, tx: Transaction, _x: (), _w: ()) {
+#[provable(stack_size = 16384)]
+pub fn toad_token_policy(self_app_id: AppId, tx: Transaction, _x: (), _w: ()) -> bool {
     assert_eq!(self_app_id.tag, TOKEN);
     assert!(
         token_amounts_balanced(&self_app_id, &tx).unwrap() || can_mint_or_burn(&self_app_id, &tx)
     );
+    true
 }
 
 fn can_mint_or_burn(self_app_id: &AppId, tx: &Transaction) -> bool {

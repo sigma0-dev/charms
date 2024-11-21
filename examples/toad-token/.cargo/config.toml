@@ -1,14 +1,9 @@
 [target.riscv32im-unknown-none-elf]
 rustflags = [
     "-C", "link-arg=-T./guest.ld",
-    "-C", "passes=lower-atomic",
-#    "-Z", "print-llvm-passes",
-    "-C", "strip=symbols",
 ]
 
 #[target.riscv32im-jolt-zkvm-elf]
 #rustflags = [
 #    "-C", "link-arg=-T./guest.ld",
-#    "-C", "passes=lower-atomic",
-#    "-C", "strip=symbols",
 #]
