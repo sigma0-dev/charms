@@ -9,9 +9,7 @@ use jolt::provable;
 #[provable(stack_size = 16384)]
 pub fn toad_token_policy(self_app_id: AppId, tx: Transaction, _x: (), _w: ()) -> bool {
     assert_eq!(self_app_id.tag, TOKEN);
-    assert!(
-        token_amounts_balanced(&self_app_id, &tx).unwrap() || can_mint_or_burn(&self_app_id, &tx)
-    );
+    assert!(token_amounts_balanced(&self_app_id, &tx) || can_mint_or_burn(&self_app_id, &tx));
     true
 }
 
@@ -21,9 +19,11 @@ fn can_mint_or_burn(self_app_id: &AppId, tx: &Transaction) -> bool {
     // see if the transaction has an input with utxo_id == the token's
     // app_id.prefix or if it involves an NFT with app_id.prefix == the
     // token's app_id.prefix
-    if tx.ins.iter().any(|utxo| {
-        utxo.id == minting_utxo_id || charm_has_nft_with_app_id_prefix(&utxo.charm, &self_app_id.id)
-    }) {
+    if tx
+        .ins
+        .iter()
+        .any(|utxo| charm_has_nft_with_app_id_prefix(&utxo.charm, &self_app_id.id))
+    {
         return true;
     }
 

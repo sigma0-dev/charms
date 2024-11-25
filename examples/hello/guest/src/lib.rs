@@ -17,7 +17,7 @@ pub fn zk_meme_token_policy(
     #[private] _w: (),
 ) -> bool {
     assert_eq!(app_id.tag, TOKEN);
-    assert!(token_amounts_balanced(&app_id, &tx).unwrap());
+    assert!(token_amounts_balanced(&app_id, &tx));
     true
 }
 

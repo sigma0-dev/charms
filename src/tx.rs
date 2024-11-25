@@ -1,6 +1,6 @@
 use crate::{
     script::{control_block, data_script, taproot_spend_info},
-    spell::Spell,
+    spell::CompactSpell,
 };
 use anyhow::{bail, ensure, Error};
 use bitcoin::{
@@ -190,7 +190,7 @@ fn append_witness_data(
     witness.push(control_block(public_key, script).serialize());
 }
 
-pub fn extract_spell(tx: &Transaction) -> anyhow::Result<Spell, Error> {
+pub fn extract_spell(tx: &Transaction) -> anyhow::Result<CompactSpell, Error> {
     let script_data = &tx.input[tx.input.len() - 1].witness[1];
 
     // Parse script_data into Script
@@ -211,7 +211,7 @@ pub fn extract_spell(tx: &Transaction) -> anyhow::Result<Spell, Error> {
     };
 
     let spell_data = push_bytes.as_bytes();
-    let spell: Spell = ciborium::de::from_reader(spell_data)?;
+    let spell: CompactSpell = ciborium::de::from_reader(spell_data)?;
     Ok(spell)
 }
 

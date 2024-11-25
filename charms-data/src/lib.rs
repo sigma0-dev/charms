@@ -1,10 +1,13 @@
 #![no_std]
 #![feature(auto_traits, negative_impls)]
-extern crate alloc;
 
-use alloc::{boxed::Box, format, vec, vec::Vec};
 use anyhow::{anyhow, Error, Result};
-use ark_std::collections::BTreeMap;
+use ark_std::{
+    boxed::Box,
+    collections::{BTreeMap, BTreeSet},
+    format, vec,
+    vec::Vec,
+};
 use core::{convert::TryInto, fmt};
 use serde::{
     de,
@@ -15,9 +18,34 @@ use serde::{
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Transaction {
+    /// Input UTXOs: **must** have id set.
     pub ins: Vec<Utxo>,
+    /// Reference UTXOs: **must** have id set.
     pub refs: Vec<Utxo>,
+    /// Transaction outputs: **must not** have id set.
     pub outs: Vec<Utxo>,
+}
+
+impl Transaction {
+    pub fn pre_req_txids(&self) -> BTreeSet<TxId> {
+        let mut txids = BTreeSet::new();
+        for utxo in self.ins.iter().chain(self.refs.iter()) {
+            if let Some(id) = utxo.id.clone() {
+                txids.insert(id.0);
+            }
+        }
+        txids
+    }
+
+    pub fn app_ids(&self) -> BTreeSet<AppId> {
+        let mut app_ids = BTreeSet::new();
+        for utxo in self.ins.iter().chain(self.outs.iter()) {
+            for app_id in utxo.charm.keys() {
+                app_ids.insert(app_id.clone());
+            }
+        }
+        app_ids
+    }
 }
 
 /// Charm is essentially an app-level UTXO that can carry tokens, NFTs, arbitrary app state.
@@ -31,6 +59,7 @@ pub type VKs = BTreeMap<VkHash, VK>;
 // UTXO as presented to the validation predicate.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Utxo {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<UtxoId>,
     pub charm: Charm,
 }
@@ -58,6 +87,25 @@ impl UtxoId {
         txid.copy_from_slice(&bytes[..32]);
         let index = u32::from_le_bytes(bytes[32..].try_into().unwrap());
         UtxoId(txid, index)
+    }
+
+    pub fn from_str(s: &str) -> Result<Self> {
+        let parts: Vec<&str> = s.split(':').collect();
+        if parts.len() != 2 {
+            return Err(anyhow!("expected format: txid_hex:index"));
+        }
+
+        let txid_bytes =
+            hex::decode(parts[0]).map_err(|e| anyhow!("invalid txid string: {:?}", e))?;
+        let txid = txid_bytes
+            .try_into()
+            .map_err(|e| anyhow!("invalid txid bytes: {:?}", e))?;
+
+        let index = parts[1]
+            .parse::<u32>()
+            .map_err(|e| anyhow!("invalid index: {}", e))?;
+
+        Ok(UtxoId(txid, index))
     }
 }
 
@@ -261,7 +309,7 @@ impl<'de> Deserialize<'de> for AppId {
 
 pub type AppState = Data;
 
-type TxId = [u8; 32];
+pub type TxId = [u8; 32];
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WitnessData {
@@ -313,13 +361,13 @@ impl TryFrom<&Data> for u64 {
 pub const TOKEN: char = 't';
 pub const NFT: char = 'n';
 
-pub fn token_amounts_balanced(app_id: &AppId, tx: &Transaction) -> Option<bool> {
+pub fn token_amounts_balanced(app_id: &AppId, tx: &Transaction) -> bool {
     match (
         sum_token_amount(app_id, &tx.ins),
         sum_token_amount(app_id, &tx.outs),
     ) {
-        (Ok(amount_in), Ok(amount_out)) => Some(amount_in == amount_out),
-        (..) => None,
+        (Ok(amount_in), Ok(amount_out)) => amount_in == amount_out,
+        (..) => false,
     }
 }
 
@@ -363,7 +411,6 @@ pub fn sum_token_amount(self_app_id: &AppId, utxos: &[Utxo]) -> Result<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::vec;
 
     pub fn zk_meme_token_policy(app_id: &AppId, tx: &Transaction, x: &Data, w: &Data) {
         assert_eq!(app_id.tag, TOKEN);
@@ -371,7 +418,7 @@ mod tests {
         // is_meme_token_creator is a function that checks that
         // the spender is the creator of this meme token.
         // In our policy, the token creator can mint and burn tokens at will.
-        assert!(token_amounts_balanced(&app_id, &tx).unwrap() || is_meme_token_creator(x, w));
+        assert!(token_amounts_balanced(&app_id, &tx) || is_meme_token_creator(x, w));
     }
 
     fn is_meme_token_creator(_x: &Data, _w: &Data) -> bool {
