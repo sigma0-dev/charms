@@ -1,10 +1,10 @@
 pub mod v0;
 
-use charms_data::{AppId, Data, Transaction, TxId, Utxo, UtxoId};
+use charms_data::{AppId, Charm, Data, Transaction, TxId, Utxo, UtxoId};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub type CharmData = BTreeMap<u32, Data>;
+pub type CharmData = BTreeMap<usize, Data>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UtxoData {
@@ -41,12 +41,62 @@ pub struct SpellData {
 }
 
 impl SpellData {
+    pub fn well_formed(&self) -> bool {
+        let is_well_formed = |charm_data: &CharmData| -> bool {
+            charm_data
+                .iter()
+                .all(|(i, _)| i < &self.public_inputs.len())
+        };
+        match self.version {
+            0u32 => {}
+            _ => return false,
+        }
+        if !self.tx.ins.iter().all(|utxo| is_well_formed(&utxo.charm)) {
+            return false;
+        }
+        if !self.tx.refs.iter().all(|utxo| is_well_formed(&utxo.charm)) {
+            return false;
+        }
+        if !self.tx.outs.iter().all(|charm| is_well_formed(charm)) {
+            return false;
+        }
+
+        true
+    }
+
     pub fn app_ids(&self) -> Vec<AppId> {
         self.public_inputs.keys().cloned().collect()
     }
 
     pub fn to_tx(&self) -> Transaction {
-        todo!()
+        let app_ids = self.app_ids();
+
+        let to_charm = |charm_data: &CharmData| -> Charm {
+            charm_data
+                .iter()
+                .map(|(&i, data)| (app_ids[i].clone(), data.clone()))
+                .collect()
+        };
+
+        let from_utxo_data = |utxo_data: &UtxoData| -> Utxo {
+            Utxo {
+                id: Some(utxo_data.id.clone()),
+                charm: to_charm(&utxo_data.charm),
+            }
+        };
+
+        let from_charm_data = |charm_data: &CharmData| -> Utxo {
+            Utxo {
+                id: None,
+                charm: to_charm(charm_data),
+            }
+        };
+
+        Transaction {
+            ins: self.tx.ins.iter().map(from_utxo_data).collect(),
+            refs: self.tx.refs.iter().map(from_utxo_data).collect(),
+            outs: self.tx.outs.iter().map(from_charm_data).collect(),
+        }
     }
 }
 
@@ -65,6 +115,9 @@ pub fn check(
     pre_req_spell_proofs: &Vec<(TxId, (SpellData, Box<dyn SpellProof>))>,
     app_contract_proofs: &Vec<(AppId, Box<dyn AppContractProof>)>,
 ) -> bool {
+    if !spell.well_formed() {
+        return false;
+    }
     let pre_req_txids = spell.tx.pre_req_txids();
     if pre_req_txids.len() != pre_req_spell_proofs.len() {
         return false;
@@ -81,17 +134,11 @@ pub fn check(
     if app_ids.len() != app_contract_proofs.len() {
         return false;
     }
-    let empty_data = Data::default();
     if !app_ids
         .iter()
         .zip(app_contract_proofs)
         .all(|(app_id0, (app_id, proof))| {
-            app_id == app_id0
-                && proof.verify(
-                    app_id,
-                    &spell.to_tx(),
-                    &spell.public_inputs.get(app_id).unwrap_or(&empty_data),
-                )
+            app_id == app_id0 && proof.verify(app_id, &spell.to_tx(), &spell.public_inputs[app_id])
         })
     {
         return false;
