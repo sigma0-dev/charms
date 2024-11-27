@@ -1,24 +1,58 @@
-pub mod sp1v3;
+pub mod v0;
 
-use charms_data::{AppId, Data, Transaction, TxId};
+use charms_data::{AppId, Data, Transaction, TxId, Utxo, UtxoId};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+
+pub type CharmData = BTreeMap<u32, Data>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Spell {
-    pub tx: Transaction,
+pub struct UtxoData {
+    pub id: UtxoId,
+    pub charm: CharmData,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TransactionData {
+    pub ins: Vec<UtxoData>,
+    pub refs: Vec<UtxoData>,
+    /// When proving correctness of a spell, we can't know the transaction ID yet.
+    /// We only know the index of each output charm.
+    pub outs: Vec<CharmData>,
+}
+
+impl TransactionData {
+    pub fn pre_req_txids(&self) -> BTreeSet<TxId> {
+        let mut txids = BTreeSet::new();
+        for utxo in self.ins.iter().chain(self.refs.iter()) {
+            txids.insert(utxo.id.0);
+        }
+        txids
+    }
+}
+
+/// Can be committed as public input.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SpellData {
+    pub version: u32,
+    pub tx: TransactionData,
+    /// Maps all `AppId`s in the transaction to (potentially empty) data.
     pub public_inputs: BTreeMap<AppId, Data>,
 }
 
-impl Spell {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        postcard::to_stdvec(&self).unwrap()
+impl SpellData {
+    pub fn app_ids(&self) -> Vec<AppId> {
+        self.public_inputs.keys().cloned().collect()
+    }
+
+    pub fn to_tx(&self) -> Transaction {
+        todo!()
     }
 }
 
 pub trait SpellProof {
     /// Verify the proof that the spell is correct.
-    fn verify(&self, spell: &Spell) -> bool;
+    fn verify(&self, spell: &SpellData) -> bool;
 }
 
 pub trait AppContractProof {
@@ -27,9 +61,9 @@ pub trait AppContractProof {
 }
 
 pub fn check(
-    spell: &Spell,
-    pre_req_spell_proofs: &BTreeMap<TxId, (Box<dyn SpellProof>, Spell)>,
-    app_contract_proofs: &BTreeMap<AppId, Box<dyn AppContractProof>>,
+    spell: &SpellData,
+    pre_req_spell_proofs: &Vec<(TxId, (SpellData, Box<dyn SpellProof>))>,
+    app_contract_proofs: &Vec<(AppId, Box<dyn AppContractProof>)>,
 ) -> bool {
     let pre_req_txids = spell.tx.pre_req_txids();
     if pre_req_txids.len() != pre_req_spell_proofs.len() {
@@ -38,12 +72,12 @@ pub fn check(
     if !pre_req_txids
         .iter()
         .zip(pre_req_spell_proofs)
-        .all(|(txid0, (txid, (proof, spell)))| txid == txid0 && proof.verify(&spell))
+        .all(|(txid0, (txid, (spell, proof)))| txid == txid0 && proof.verify(&spell))
     {
         return false;
     }
 
-    let app_ids = spell.tx.app_ids();
+    let app_ids = spell.app_ids();
     if app_ids.len() != app_contract_proofs.len() {
         return false;
     }
@@ -55,7 +89,7 @@ pub fn check(
             app_id == app_id0
                 && proof.verify(
                     app_id,
-                    &spell.tx,
+                    &spell.to_tx(),
                     &spell.public_inputs.get(app_id).unwrap_or(&empty_data),
                 )
         })
@@ -71,5 +105,5 @@ mod test {
     use super::*;
 
     #[test]
-    fn test() {}
+    fn dummy() {}
 }

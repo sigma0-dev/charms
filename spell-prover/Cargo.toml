@@ -1,0 +1,12 @@
+[package]
+name = "spell-prover"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+charms-data = { path = "../charms-data" }
+anyhow = { version = "1.0.86" }
+postcard = { version = "1.0", features = ["use-std"] }
+serde = { version = "1.0.209", features = ["derive"] }
+sp1-zkvm = "3.3.0"
+spell-checker = { path = "../spell-checker" }

@@ -1,12 +1,12 @@
-use charms_data::{AppId, Data, UtxoId, VkHash};
+use charms_data::{AppId, Data, TxId, UtxoId, VkHash};
 use ciborium::Value;
 use serde::{Deserialize, Serialize};
+use sp1_sdk::{ProverClient, SP1Stdin};
+use spell_checker::{AppContractProof, SpellData, SpellProof};
 use std::collections::BTreeMap;
 
-pub trait CompactAppState: Serialize {}
-
 /// Charm as represented in a spell.
-/// Map of `$TICKER: <app_state>`
+/// Map of `$TICKER: data`
 pub type CompactCharm = BTreeMap<String, Value>;
 
 /// UTXO as represented in a spell.
@@ -17,8 +17,12 @@ pub struct CompactUtxo {
     pub charm: CompactCharm,
 }
 
+/// Defines how spells are represented on the wire,
+/// in both human-friendly (JSON/YAML) and machine-friendly (CBOR) formats.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CompactSpell {
+    pub version: u32,
+
     pub app_ids: BTreeMap<String, AppId>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -40,6 +44,22 @@ pub fn prove(
     binaries: BTreeMap<VkHash, Box<[u8]>>,
 ) -> anyhow::Result<CompactSpell> {
     Ok(todo!())
+}
+
+pub fn prove_check(
+    spell: &SpellData,
+    pre_req_spell_proofs: &BTreeMap<TxId, (Box<dyn SpellProof>, SpellData)>,
+    app_contract_proofs: &BTreeMap<AppId, Box<dyn AppContractProof>>,
+) -> bool {
+    // impl
+    sp1_sdk::utils::setup_logger();
+
+    let client = ProverClient::new();
+    let mut stdin = SP1Stdin::new();
+    // stdin.write(&args.n);
+
+    todo!();
+    true
 }
 
 #[cfg(test)]
