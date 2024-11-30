@@ -1,9 +1,0 @@
-[target.riscv32im-unknown-none-elf]
-rustflags = [
-    "-C", "link-arg=-T./guest.ld",
-]
-
-#[target.riscv32im-jolt-zkvm-elf]
-#rustflags = [
-#    "-C", "link-arg=-T./guest.ld",
-#]

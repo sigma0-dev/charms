@@ -1,12 +1,11 @@
-#![cfg_attr(feature = "guest", no_std)]
-extern crate alloc;
-
-pub(crate) use charms_data::{
+use charms_data::{
     token_amounts_balanced, AppId, Charm, Transaction, UtxoId, NFT, TOKEN,
 };
-use jolt::provable;
 
-#[provable(stack_size = 16384)]
+pub fn main() {
+    todo!()
+}
+
 pub fn toad_token_policy(self_app_id: AppId, tx: Transaction, _x: (), _w: ()) -> bool {
     assert_eq!(self_app_id.tag, TOKEN);
     assert!(token_amounts_balanced(&self_app_id, &tx) || can_mint_or_burn(&self_app_id, &tx));
@@ -34,4 +33,10 @@ fn charm_has_nft_with_app_id_prefix(charm: &Charm, nft_app_id_id: &UtxoId) -> bo
     charm
         .iter()
         .any(|(app_id, _)| app_id.tag == NFT && nft_app_id_id == &app_id.id)
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn dummy() {}
 }

@@ -1,4 +1,5 @@
 pub mod v0;
+pub mod bin;
 
 use charms_data::{AppId, Charm, Data, Transaction, TxId, Utxo, UtxoId, VkHash};
 use serde::{Deserialize, Serialize};

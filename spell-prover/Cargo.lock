@@ -59,7 +59,7 @@ checksum = "bcfcc3cd946cb52f0bbfdbbcfa2f4e24f75ebb6c0e1002f7c25904fada18b9ec"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.89",
+ "syn 2.0.90",
 ]
 
 [[package]]
@@ -216,9 +216,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.165"
+version = "0.2.167"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcb4d3d38eab6c5239a362fa8bae48c03baf980a6e7079f063942d563ef3533e"
+checksum = "09d6582e104315a817dff97f75133544b2e094ee22447d2acf4a74e189ba06fc"
 
 [[package]]
 name = "libm"
@@ -458,7 +458,7 @@ checksum = "ad1e866f866923f252f05c889987993144fb74e722403468a4ebd70c3cd756c0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.89",
+ "syn 2.0.90",
 ]
 
 [[package]]
@@ -474,9 +474,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-lib"
-version = "3.3.0"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa1fe3d3e2a4cfe6b7259f0c00f770a4376fba892af20695b6ba450e0d02771c"
+checksum = "7a5729da1b05d56c01457e5ecabdc77f1cc941df23f2921163a2f325aec22428"
 dependencies = [
  "bincode",
  "serde",
@@ -484,9 +484,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-primitives"
-version = "3.3.0"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3442b59d2606ed4517c09b5daaa39e0e0d0ef75fb8e75b6f50334fd87a966b42"
+checksum = "9d10c2078a5dfc5c3a632da1bc59b57a19dadc9c03968047d8ffb06c0f83b476"
 dependencies = [
  "bincode",
  "hex",
@@ -502,9 +502,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-verifier"
-version = "3.3.0"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4ea6d571316a775d285b3266d93c755779c30466cecbc0f4f7853cdf122e9c0"
+checksum = "cf4acb87c786eadd7656384110aef2f434bc5ba40c1631b967e0a10042aa72b6"
 dependencies = [
  "hex",
  "lazy_static",
@@ -515,9 +515,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-zkvm"
-version = "3.3.0"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7123d0e616c6641a9088c604f5d00f728f396823e8a91ef805d54d6e1d8ccc1b"
+checksum = "8ea02449a9dcaab67219f7b3442ab51b45ae40e7b04f205382295936087fe1d5"
 dependencies = [
  "cfg-if",
  "getrandom",
@@ -529,22 +529,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "spell-checker"
+name = "spell-prover"
 version = "0.1.0"
 dependencies = [
  "charms-data",
  "serde",
  "sp1-primitives",
  "sp1-verifier",
-]
-
-[[package]]
-name = "spell-prover"
-version = "0.1.0"
-dependencies = [
- "charms-data",
  "sp1-zkvm",
- "spell-checker",
 ]
 
 [[package]]
@@ -583,9 +575,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.89"
+version = "2.0.90"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44d46482f1c1c87acd84dea20c1bf5ebff4c757009ed6bf19cfd36fb10e92c4e"
+checksum = "919d3b74a5dd0ccd15aeb8f93e7006bd9e14c295087c9896a110f490752bcf31"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -631,7 +623,7 @@ checksum = "395ae124c09f9e6918a2310af6038fba074bcf474ac352496d5910dd59a2226d"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.89",
+ "syn 2.0.90",
 ]
 
 [[package]]
@@ -685,5 +677,5 @@ checksum = "fa4f8080344d4671fb4e831a13ad1e68092748387dfc4f55e356242fae12ce3e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.89",
+ "syn 2.0.90",
 ]
