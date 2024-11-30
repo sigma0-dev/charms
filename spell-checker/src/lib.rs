@@ -1,8 +1,17 @@
 pub mod v0;
 
-use charms_data::{AppId, Charm, Data, Transaction, TxId, Utxo, UtxoId};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use charms_data::{AppId, Charm, Data, Transaction, TxId, Utxo, UtxoId, VkHash};
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SpellProverInput {
+    pub self_spell_vk: String,
+    pub pre_req_spell_proofs: Vec<(TxId, (SpellData, Option<Box<[u8]>>))>,
+    pub app_vks: BTreeMap<VkHash, String>,
+    pub spell: SpellData,
+    pub app_contract_proofs: Vec<(AppId, Option<Box<[u8]>>)>,
+}
 
 pub type CharmData = BTreeMap<usize, Data>;
 
@@ -98,6 +107,44 @@ impl SpellData {
             outs: self.tx.outs.iter().map(from_charm_data).collect(),
         }
     }
+
+    pub fn is_correct(
+        &self,
+        pre_req_spell_proofs: &Vec<(TxId, (SpellData, Box<dyn SpellProof>))>,
+        app_contract_proofs: &Vec<(AppId, Box<dyn AppContractProof>)>,
+    ) -> bool {
+        if !self.well_formed() {
+            return false;
+        }
+        let pre_req_txids = self.tx.pre_req_txids();
+        if pre_req_txids.len() != pre_req_spell_proofs.len() {
+            return false;
+        }
+        if !pre_req_txids
+            .iter()
+            .zip(pre_req_spell_proofs)
+            .all(|(txid0, (txid, (spell, proof)))| txid == txid0 && proof.verify(&spell))
+        {
+            return false;
+        }
+
+        let app_ids = self.app_ids();
+        if app_ids.len() != app_contract_proofs.len() {
+            return false;
+        }
+        if !app_ids
+            .iter()
+            .zip(app_contract_proofs)
+            .all(|(app_id0, (app_id, proof))| {
+                app_id == app_id0
+                    && proof.verify(app_id, &self.to_tx(), &self.public_inputs[app_id])
+            })
+        {
+            return false;
+        }
+
+        true
+    }
 }
 
 pub trait SpellProof {
@@ -110,47 +157,8 @@ pub trait AppContractProof {
     fn verify(&self, app_id: &AppId, tx: &Transaction, x: &Data) -> bool;
 }
 
-pub fn check(
-    spell: &SpellData,
-    pre_req_spell_proofs: &Vec<(TxId, (SpellData, Box<dyn SpellProof>))>,
-    app_contract_proofs: &Vec<(AppId, Box<dyn AppContractProof>)>,
-) -> bool {
-    if !spell.well_formed() {
-        return false;
-    }
-    let pre_req_txids = spell.tx.pre_req_txids();
-    if pre_req_txids.len() != pre_req_spell_proofs.len() {
-        return false;
-    }
-    if !pre_req_txids
-        .iter()
-        .zip(pre_req_spell_proofs)
-        .all(|(txid0, (txid, (spell, proof)))| txid == txid0 && proof.verify(&spell))
-    {
-        return false;
-    }
-
-    let app_ids = spell.app_ids();
-    if app_ids.len() != app_contract_proofs.len() {
-        return false;
-    }
-    if !app_ids
-        .iter()
-        .zip(app_contract_proofs)
-        .all(|(app_id0, (app_id, proof))| {
-            app_id == app_id0 && proof.verify(app_id, &spell.to_tx(), &spell.public_inputs[app_id])
-        })
-    {
-        return false;
-    }
-
-    true
-}
-
 #[cfg(test)]
 mod test {
-    use super::*;
-
     #[test]
     fn dummy() {}
 }
