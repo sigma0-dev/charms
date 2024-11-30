@@ -8,4 +8,4 @@ charms-data = { path = "../charms-data" }
 serde = { version = "1.0", features = ["derive"] }
 sp1-primitives = { version = "3.0.0" }
 sp1-verifier = { version = "3.0.0" }
-sp1-zkvm = "3.0.0"
+sp1-zkvm = { version = "3.0.0" }
