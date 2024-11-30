@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use charms_data::{AppId, VkHash};
-use crate::{AppContractProof, SpellProof, SpellProverInput};
+use crate::{AppContractProof, SpellProof, SpellProverInput, V0};
 use crate::v0::{V0AppContractProof, V0SpellProof};
 
 pub fn main() {
@@ -43,7 +43,7 @@ pub fn to_spell_proof(
     proof_data: Option<Box<[u8]>>,
 ) -> Box<dyn SpellProof> {
     match version {
-        0u32 => Box::new(V0SpellProof {
+        V0 => Box::new(V0SpellProof {
             vk_bytes32: self_spell_vk,
             proof: proof_data,
         }),

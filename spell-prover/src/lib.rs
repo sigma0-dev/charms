@@ -5,6 +5,8 @@ use charms_data::{AppId, Charm, Data, Transaction, TxId, Utxo, UtxoId, VkHash};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+pub const V0: u32 = 0u32;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpellProverInput {
     pub self_spell_vk: String,
