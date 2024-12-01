@@ -9,3 +9,8 @@ serde = { version = "1.0", features = ["derive"] }
 sp1-primitives = { version = "3.0.0" }
 sp1-verifier = { version = "3.0.0" }
 sp1-zkvm = { version = "3.0.0" }
+
+[profile.release]
+lto = "fat"
+opt-level = "s"
+strip = "symbols"
