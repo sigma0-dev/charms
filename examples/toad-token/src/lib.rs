@@ -7,11 +7,11 @@ pub fn main() {
     let (app_id, tx, x, w): (AppId, Transaction, Data, Data) = sp1_zkvm::io::read();
     assert_eq!(x, Data::empty());
     assert_eq!(w, Data::empty());
-    assert!(satisfies_contract(&app_id, &tx));
+    assert!(app_contract(&app_id, &tx, (), ()));
     sp1_zkvm::io::commit(&(&app_id, &tx, &x));
 }
 
-pub fn satisfies_contract(app_id: &AppId, tx: &Transaction) -> bool {
+pub fn app_contract(app_id: &AppId, tx: &Transaction, _x: (), _w: ()) -> bool {
     match app_id.tag {
         NFT => {
             assert!(nft_contract_satisfied(app_id, tx))
