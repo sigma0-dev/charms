@@ -10,7 +10,7 @@ pub const V0: u32 = 0u32;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpellProverInput {
     pub self_spell_vk: [u8; 32],
-    pub pre_req_spell_proofs: Vec<(TxId, (SpellData, [u8; 32], Option<Box<[u8]>>))>,
+    pub pre_req_spell_proofs: Vec<(TxId, (SpellData, Option<Box<[u8]>>))>,
     pub spell: SpellData,
     pub app_contract_proofs: Vec<(AppId, Option<Box<[u8]>>)>,
 }
@@ -112,7 +112,7 @@ impl SpellData {
 
     pub fn is_correct(
         &self,
-        pre_req_spell_proofs: &Vec<(TxId, (SpellData, [u8; 32], Box<dyn SpellProof>))>,
+        pre_req_spell_proofs: &BTreeMap<TxId, (SpellData, Box<dyn SpellProof>)>,
         app_contract_proofs: &Vec<(AppId, Box<dyn AppContractProof>)>,
     ) -> bool {
         if !self.well_formed() {
@@ -122,10 +122,15 @@ impl SpellData {
         if pre_req_txids.len() != pre_req_spell_proofs.len() {
             return false;
         }
+        // check that pre-req spells produce the charms we're spending in this spell
+        if !self.tx.ins.iter().all(
+            |utxo| utxo.charm == pre_req_spell_proofs[&utxo.id.0].0.tx.outs[utxo.id.1 as usize]) {
+            return false;
+        }
         if !pre_req_txids
             .iter()
             .zip(pre_req_spell_proofs)
-            .all(|(txid0, (txid, (spell, cm, proof)))| txid == txid0 && proof.verify(&spell, cm))
+            .all(|(txid0, (txid, (spell, proof)))| txid == txid0 && proof.verify(&spell))
         {
             return false;
         }
@@ -151,7 +156,7 @@ impl SpellData {
 
 pub trait SpellProof {
     /// Verify the proof that the spell is correct.
-    fn verify(&self, spell: &SpellData, cm: &[u8; 32]) -> bool;
+    fn verify(&self, spell: &SpellData) -> bool;
 }
 
 pub trait AppContractProof {

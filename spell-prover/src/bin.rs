@@ -1,4 +1,3 @@
-use sha2::{Digest, Sha256};
 use crate::{
     v0::{V0AppContractProof, V0SpellProof},
     AppContractProof, SpellProof, SpellProverInput, V0,
@@ -14,16 +13,11 @@ pub fn main() {
         app_contract_proofs,
     } = sp1_zkvm::io::read();
 
-    let cm = {
-        let committed_input_data = bincode::serialize(&(&pre_req_spell_proofs, &app_contract_proofs)).unwrap();
-        Sha256::digest(&committed_input_data)
-    };
-
     let pre_req_spell_proofs = pre_req_spell_proofs
         .into_iter()
-        .map(|(txid, (spell, cm, proof_data))| {
+        .map(|(txid, (spell, proof_data))| {
             let spell_proof = to_spell_proof(spell.version, self_spell_vk.clone(), proof_data);
-            (txid, (spell, cm, spell_proof))
+            (txid, (spell, spell_proof))
         })
         .collect();
 
@@ -39,7 +33,7 @@ pub fn main() {
     assert!(spell.is_correct(&pre_req_spell_proofs, &app_contract_proofs));
 
     // Commit to the public values of the program.
-    sp1_zkvm::io::commit(&(&self_spell_vk, &spell, cm.as_slice()));
+    sp1_zkvm::io::commit(&(&self_spell_vk, &spell));
 }
 
 pub fn to_spell_proof(
