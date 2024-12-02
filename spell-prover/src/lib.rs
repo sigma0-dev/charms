@@ -1,5 +1,5 @@
-pub mod v0;
 pub mod bin;
+pub mod v0;
 
 use charms_data::{AppId, Charm, Data, Transaction, TxId, Utxo, UtxoId, VkHash};
 use serde::{Deserialize, Serialize};
@@ -9,9 +9,8 @@ pub const V0: u32 = 0u32;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpellProverInput {
-    pub self_spell_vk: String,
+    pub self_spell_vk: [u8; 32],
     pub pre_req_spell_proofs: Vec<(TxId, (SpellData, Option<Box<[u8]>>))>,
-    pub app_vks: BTreeMap<VkHash, String>,
     pub spell: SpellData,
     pub app_contract_proofs: Vec<(AppId, Option<Box<[u8]>>)>,
 }

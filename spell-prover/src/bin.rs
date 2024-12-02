@@ -1,13 +1,13 @@
-use std::collections::BTreeMap;
-use charms_data::{AppId, VkHash};
-use crate::{AppContractProof, SpellProof, SpellProverInput, V0};
-use crate::v0::{V0AppContractProof, V0SpellProof};
+use crate::{
+    v0::{V0AppContractProof, V0SpellProof},
+    AppContractProof, SpellProof, SpellProverInput, V0,
+};
+use charms_data::AppId;
 
 pub fn main() {
     // Read an input to the program.
     let SpellProverInput {
         self_spell_vk,
-        app_vks,
         spell,
         pre_req_spell_proofs,
         app_contract_proofs,
@@ -22,7 +22,7 @@ pub fn main() {
         .collect();
 
     let app_contract_proof_mapping = |(app_id, proof_data)| {
-        let app_contract_proof = to_app_contract_proof(&app_vks, &app_id, proof_data);
+        let app_contract_proof = to_app_contract_proof(&app_id, proof_data);
         (app_id, app_contract_proof)
     };
     let app_contract_proofs = app_contract_proofs
@@ -39,12 +39,12 @@ pub fn main() {
 
 pub fn to_spell_proof(
     version: u32,
-    self_spell_vk: String,
+    self_spell_vk: [u8; 32],
     proof_data: Option<Box<[u8]>>,
 ) -> Box<dyn SpellProof> {
     match version {
         V0 => Box::new(V0SpellProof {
-            vk_bytes32: self_spell_vk,
+            vk: self_spell_vk,
             proof: proof_data,
         }),
         _ => unreachable!(),
@@ -52,17 +52,16 @@ pub fn to_spell_proof(
 }
 
 fn to_app_contract_proof<'a>(
-    app_vks: &BTreeMap<VkHash, String>,
     app_id: &AppId,
     proof_data: Option<Box<[u8]>>,
 ) -> Box<dyn AppContractProof> {
     let app_contract_proof = proof_data.map_or(
         V0AppContractProof {
-            vk_bytes32: None,
+            vk: None,
             proof: None,
         },
         |proof_data| V0AppContractProof {
-            vk_bytes32: Some(app_vks[&app_id.vk_hash].clone()),
+            vk: Some(app_id.vk_hash.0),
             proof: Some(proof_data),
         },
     );

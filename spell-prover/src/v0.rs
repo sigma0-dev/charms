@@ -8,7 +8,7 @@ use sp1_verifier::Groth16Verifier;
 
 #[derive(Serialize, Deserialize)]
 pub struct V0SpellProof {
-    pub vk_bytes32: String,
+    pub vk: [u8; 32],
     pub proof: Option<Box<[u8]>>,
 }
 
@@ -23,8 +23,8 @@ impl<'a> SpellProof for V0SpellProof {
         match &self.proof {
             Some(proof) => Groth16Verifier::verify(
                 proof,
-                to_public_values(&(&self.vk_bytes32, spell)).as_slice(),
-                &self.vk_bytes32,
+                to_public_values(&(&self.vk, spell)).as_slice(),
+                &format!("0x{}", hex::encode(&self.vk)),
                 *sp1_verifier::GROTH16_VK_BYTES,
             )
             .is_ok(),
@@ -35,7 +35,7 @@ impl<'a> SpellProof for V0SpellProof {
 
 #[derive(Serialize, Deserialize)]
 pub struct V0AppContractProof {
-    pub vk_bytes32: Option<String>,
+    pub vk: Option<[u8; 32]>,
     pub proof: Option<Box<[u8]>>,
 }
 
@@ -43,13 +43,11 @@ impl AppContractProof for V0AppContractProof {
     fn verify(&self, app_id: &AppId, tx: &Transaction, x: &Data) -> bool {
         match &self.proof {
             Some(proof) => {
-                let Some(vk_bytes32) = &self.vk_bytes32 else {
-                    unreachable!()
-                };
+                let Some(vk) = &self.vk else { unreachable!() };
                 Groth16Verifier::verify(
                     proof,
                     to_public_values(&(app_id, tx, x)).as_slice(),
-                    vk_bytes32,
+                    &format!("0x{}", hex::encode(vk)),
                     *sp1_verifier::GROTH16_VK_BYTES,
                 )
                 .is_ok()
