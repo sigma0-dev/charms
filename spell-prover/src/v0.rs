@@ -19,11 +19,11 @@ fn to_public_values<T: Serialize>(t: &T) -> SP1PublicValues {
 }
 
 impl<'a> SpellProof for V0SpellProof {
-    fn verify(&self, spell: &SpellData) -> bool {
+    fn verify(&self, spell: &SpellData, cm: &[u8; 32]) -> bool {
         match &self.proof {
             Some(proof) => Groth16Verifier::verify(
                 proof,
-                to_public_values(&(&self.vk, spell)).as_slice(),
+                to_public_values(&(&self.vk, spell, cm)).as_slice(),
                 &format!("0x{}", hex::encode(&self.vk)),
                 *sp1_verifier::GROTH16_VK_BYTES,
             )

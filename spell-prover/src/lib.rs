@@ -1,7 +1,7 @@
 pub mod bin;
 pub mod v0;
 
-use charms_data::{AppId, Charm, Data, Transaction, TxId, Utxo, UtxoId, VkHash};
+use charms_data::{AppId, Charm, Data, Transaction, TxId, Utxo, UtxoId};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -10,7 +10,7 @@ pub const V0: u32 = 0u32;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpellProverInput {
     pub self_spell_vk: [u8; 32],
-    pub pre_req_spell_proofs: Vec<(TxId, (SpellData, Option<Box<[u8]>>))>,
+    pub pre_req_spell_proofs: Vec<(TxId, (SpellData, [u8; 32], Option<Box<[u8]>>))>,
     pub spell: SpellData,
     pub app_contract_proofs: Vec<(AppId, Option<Box<[u8]>>)>,
 }
@@ -112,7 +112,7 @@ impl SpellData {
 
     pub fn is_correct(
         &self,
-        pre_req_spell_proofs: &Vec<(TxId, (SpellData, Box<dyn SpellProof>))>,
+        pre_req_spell_proofs: &Vec<(TxId, (SpellData, [u8; 32], Box<dyn SpellProof>))>,
         app_contract_proofs: &Vec<(AppId, Box<dyn AppContractProof>)>,
     ) -> bool {
         if !self.well_formed() {
@@ -125,7 +125,7 @@ impl SpellData {
         if !pre_req_txids
             .iter()
             .zip(pre_req_spell_proofs)
-            .all(|(txid0, (txid, (spell, proof)))| txid == txid0 && proof.verify(&spell))
+            .all(|(txid0, (txid, (spell, cm, proof)))| txid == txid0 && proof.verify(&spell, cm))
         {
             return false;
         }
@@ -151,7 +151,7 @@ impl SpellData {
 
 pub trait SpellProof {
     /// Verify the proof that the spell is correct.
-    fn verify(&self, spell: &SpellData) -> bool;
+    fn verify(&self, spell: &SpellData, cm: &[u8; 32]) -> bool;
 }
 
 pub trait AppContractProof {

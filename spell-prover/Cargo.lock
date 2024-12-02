@@ -531,6 +531,7 @@ dependencies = [
 name = "spell-prover"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "charms-data",
  "hex",
  "serde",
