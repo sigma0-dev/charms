@@ -2,7 +2,7 @@ use crate::{
     v0::{V0AppContractProof, V0SpellProof},
     AppContractProof, SpellProof, SpellProverInput, V0,
 };
-use charms_data::AppId;
+use charms_data::App;
 
 pub fn main() {
     // Read an input to the program.
@@ -23,9 +23,9 @@ pub fn main() {
 
     let app_contract_proofs = app_contract_proofs
         .into_iter()
-        .map(|(app_id, proof_data)| {
-            let app_contract_proof = to_app_contract_proof(&app_id, proof_data);
-            (app_id, app_contract_proof)
+        .map(|(app, proof_data)| {
+            let app_contract_proof = to_app_contract_proof(&app, proof_data);
+            (app, app_contract_proof)
         })
         .collect();
 
@@ -50,17 +50,14 @@ pub fn to_spell_proof(
     }
 }
 
-fn to_app_contract_proof<'a>(
-    app_id: &AppId,
-    proof_data: Option<Box<[u8]>>,
-) -> Box<dyn AppContractProof> {
+fn to_app_contract_proof(app: &App, proof_data: Option<Box<[u8]>>) -> Box<dyn AppContractProof> {
     let app_contract_proof = proof_data.map_or(
         V0AppContractProof {
             vk: None,
             proof: None,
         },
         |proof_data| V0AppContractProof {
-            vk: Some(app_id.vk_hash.0),
+            vk: Some(app.vk_hash.0),
             proof: Some(proof_data),
         },
     );

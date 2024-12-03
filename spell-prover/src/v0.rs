@@ -1,6 +1,6 @@
 use crate::{AppContractProof, NormalizedSpell, SpellProof};
 use charms_data::{
-    nft_state_preserved, token_amounts_balanced, AppId, Data, Transaction, NFT, TOKEN,
+    nft_state_preserved, token_amounts_balanced, App, Data, Transaction, NFT, TOKEN,
 };
 use serde::{Deserialize, Serialize};
 use sp1_primitives::io::SP1PublicValues;
@@ -40,21 +40,21 @@ pub struct V0AppContractProof {
 }
 
 impl AppContractProof for V0AppContractProof {
-    fn verify(&self, app_id: &AppId, tx: &Transaction, x: &Data) -> bool {
+    fn verify(&self, app: &App, tx: &Transaction, x: &Data) -> bool {
         match &self.proof {
             Some(proof) => {
                 let Some(vk) = &self.vk else { unreachable!() };
                 Groth16Verifier::verify(
                     proof,
-                    to_public_values(&(app_id, tx, x)).as_slice(),
+                    to_public_values(&(app, tx, x)).as_slice(),
                     &format!("0x{}", hex::encode(vk)),
                     *sp1_verifier::GROTH16_VK_BYTES,
                 )
                 .is_ok()
             }
-            None => match app_id.tag {
-                TOKEN => token_amounts_balanced(app_id, &tx),
-                NFT => nft_state_preserved(app_id, &tx),
+            None => match app.tag {
+                TOKEN => token_amounts_balanced(app, &tx),
+                NFT => nft_state_preserved(app, &tx),
                 _ => false,
             },
         }

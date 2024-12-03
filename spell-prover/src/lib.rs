@@ -1,7 +1,7 @@
 pub mod bin;
 pub mod v0;
 
-use charms_data::{AppId, Charm, Data, Transaction, TxId, Utxo, UtxoId};
+use charms_data::{App, Charm, Data, Transaction, TxId, Utxo, UtxoId};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -12,7 +12,7 @@ pub struct SpellProverInput {
     pub self_spell_vk: [u8; 32],
     pub pre_req_spell_proofs: Vec<(TxId, (NormalizedSpell, Option<Box<[u8]>>))>,
     pub spell: NormalizedSpell,
-    pub app_contract_proofs: Vec<(AppId, Option<Box<[u8]>>)>,
+    pub app_contract_proofs: Vec<(App, Option<Box<[u8]>>)>,
 }
 
 pub type NormalizedCharm = BTreeMap<usize, Data>;
@@ -42,8 +42,8 @@ impl NormalizedTransaction {
 pub struct NormalizedSpell {
     pub version: u32,
     pub tx: NormalizedTransaction,
-    /// Maps all `AppId`s in the transaction to (potentially empty) data.
-    pub app_public_inputs: BTreeMap<AppId, Data>,
+    /// Maps all `App`s in the transaction to (potentially empty) data.
+    pub app_public_inputs: BTreeMap<App, Data>,
 }
 
 impl NormalizedSpell {
@@ -86,7 +86,7 @@ impl NormalizedSpell {
         }
     }
 
-    pub fn app_ids(&self) -> Vec<AppId> {
+    pub fn apps(&self) -> Vec<App> {
         self.app_public_inputs.keys().cloned().collect()
     }
 
@@ -123,7 +123,7 @@ impl NormalizedSpell {
     pub fn is_correct(
         &self,
         pre_req_spell_proofs: &BTreeMap<TxId, (NormalizedSpell, Box<dyn SpellProof>)>,
-        app_contract_proofs: &Vec<(AppId, Box<dyn AppContractProof>)>,
+        app_contract_proofs: &Vec<(App, Box<dyn AppContractProof>)>,
     ) -> bool {
         if !self.well_formed(pre_req_spell_proofs) {
             return false;
@@ -140,19 +140,19 @@ impl NormalizedSpell {
             return false;
         }
 
-        let app_ids = self.app_ids();
-        if app_ids.len() != app_contract_proofs.len() {
+        let apps = self.apps();
+        if apps.len() != app_contract_proofs.len() {
             return false;
         }
-        if !app_ids
+        if !apps
             .iter()
             .zip(app_contract_proofs)
-            .all(|(app_id0, (app_id, proof))| {
-                app_id == app_id0
+            .all(|(app0, (app, proof))| {
+                app == app0
                     && proof.verify(
-                        app_id,
+                        app,
                         &self.to_tx(pre_req_spell_proofs),
-                        &self.app_public_inputs[app_id],
+                        &self.app_public_inputs[app],
                     )
             })
         {
@@ -163,10 +163,10 @@ impl NormalizedSpell {
     }
 
     fn to_charm(&self, n_charm: &NormalizedCharm) -> Charm {
-        let app_ids = self.app_ids();
+        let apps = self.apps();
         n_charm
             .iter()
-            .map(|(&i, data)| (app_ids[i].clone(), data.clone()))
+            .map(|(&i, data)| (apps[i].clone(), data.clone()))
             .collect()
     }
 }
@@ -178,7 +178,7 @@ pub trait SpellProof {
 
 pub trait AppContractProof {
     /// Verify the proof that the app contract is satisfied by the transaction and public input.
-    fn verify(&self, app_id: &AppId, tx: &Transaction, x: &Data) -> bool;
+    fn verify(&self, app: &App, tx: &Transaction, x: &Data) -> bool;
 }
 
 #[cfg(test)]

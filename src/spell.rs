@@ -1,4 +1,4 @@
-use charms_data::{AppId, Data, TxId, UtxoId, VkHash};
+use charms_data::{App, Data, TxId, UtxoId, VkHash};
 use ciborium::Value;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{ProverClient, SP1Stdin};
@@ -23,7 +23,7 @@ pub struct CompactUtxo {
 pub struct CompactSpell {
     pub version: u32,
 
-    pub app_ids: BTreeMap<String, AppId>,
+    pub apps: BTreeMap<String, App>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub public_inputs: Option<BTreeMap<String, Data>>,
@@ -49,7 +49,7 @@ pub fn prove(
 pub fn prove_check(
     spell: &NormalizedSpell,
     pre_req_spell_proofs: &BTreeMap<TxId, (Box<dyn SpellProof>, NormalizedSpell)>,
-    app_contract_proofs: &BTreeMap<AppId, Box<dyn AppContractProof>>,
+    app_contract_proofs: &BTreeMap<App, Box<dyn AppContractProof>>,
 ) -> bool {
     // impl
     sp1_sdk::utils::setup_logger();
@@ -65,7 +65,7 @@ pub fn prove_check(
 #[cfg(test)]
 mod test {
     use crate::spell::CompactCharm;
-    use charms_data::{AppId, AppState, Charm, Data, Transaction, Utxo, UtxoId, VkHash, TOKEN};
+    use charms_data::{App, AppState, Charm, Data, Transaction, Utxo, UtxoId, VkHash, TOKEN};
     use ciborium::Value;
     use hex;
     use serde::Deserialize;
@@ -110,10 +110,10 @@ $TOAD: 9
     }
 
     #[test]
-    fn app_id_postcard() {
+    fn app_postcard() {
         use postcard;
 
-        let app_id_orig = AppId {
+        let app_orig = App {
             tag: TOKEN,
             id: UtxoId::default(),
             vk_hash: VkHash::default(),
@@ -122,18 +122,18 @@ $TOAD: 9
         let tx_orig = Transaction {
             ins: vec![Utxo {
                 id: Some(UtxoId::default()),
-                charm: Charm::from([(app_id_orig.clone(), 1u64.into())]),
+                charm: Charm::from([(app_orig.clone(), 1u64.into())]),
             }],
             refs: vec![],
             outs: vec![Utxo {
                 id: None,
-                charm: Charm::from([(app_id_orig.clone(), 1u64.into())]),
+                charm: Charm::from([(app_orig.clone(), 1u64.into())]),
             }],
         };
 
         let utxo_orig = Utxo {
             id: Some(UtxoId::default()),
-            charm: Charm::from([(app_id_orig.clone(), 1u64.into())]),
+            charm: Charm::from([(app_orig.clone(), 1u64.into())]),
         };
 
         let app_state_orig: AppState = 1u64.into();
@@ -141,7 +141,7 @@ $TOAD: 9
         let mut buf = [0u8; 4096];
         let mut writer: &mut [u8] = &mut buf;
 
-        let _ = postcard::to_io(&app_id_orig, &mut writer).unwrap();
+        let _ = postcard::to_io(&app_orig, &mut writer).unwrap();
         // let _ = postcard::to_io(&tx_orig, &mut writer).unwrap();
         // let _ = postcard::to_io(&utxo_orig, &mut writer).unwrap();
         // let _ = postcard::to_io(&app_state_orig, &mut writer).unwrap();
@@ -150,14 +150,14 @@ $TOAD: 9
 
         let mut buf: &mut [u8] = &mut buf;
 
-        let (app_id, _) = postcard::take_from_bytes::<AppId>(&mut buf).unwrap();
+        let (app, _) = postcard::take_from_bytes::<App>(&mut buf).unwrap();
         // let (tx, _) = postcard::take_from_bytes::<Transaction>(&mut buf).unwrap();
         // let (utxo, _) = postcard::take_from_bytes::<Utxo>(&mut buf).unwrap();
         // let (app_state, _) = postcard::take_from_bytes::<AppState>(&mut buf).unwrap();
         // let (x, _) = postcard::take_from_bytes::<Data>(&mut buf).unwrap();
         // let (w, _) = postcard::take_from_bytes::<Data>(&mut buf).unwrap();
 
-        assert_eq!(app_id, app_id_orig);
+        assert_eq!(app, app_orig);
         // assert_eq!(tx, tx_orig);
         // assert_eq!(utxo, utxo_orig);
         // assert_eq!(app_state, app_state_orig);
@@ -167,7 +167,7 @@ $TOAD: 9
         let mut buf = [0u8; 4096];
         let mut output_slice: &mut [u8] = &mut buf;
 
-        ciborium::ser::into_writer(&app_id_orig, &mut output_slice).unwrap();
+        ciborium::ser::into_writer(&app_orig, &mut output_slice).unwrap();
         ciborium::ser::into_writer(&tx_orig, &mut output_slice).unwrap();
         ciborium::ser::into_writer(&utxo_orig, &mut output_slice).unwrap();
         ciborium::ser::into_writer(&app_state_orig, &mut output_slice).unwrap();
@@ -178,14 +178,14 @@ $TOAD: 9
         let input_slice = input_vec.as_slice();
         let mut input_slice = input_slice;
 
-        let app_id: AppId = ciborium::de::from_reader(&mut input_slice).unwrap();
+        let app: App = ciborium::de::from_reader(&mut input_slice).unwrap();
         let tx: Transaction = ciborium::de::from_reader(&mut input_slice).unwrap();
         let utxo: Utxo = ciborium::de::from_reader(&mut input_slice).unwrap();
         let app_state: AppState = ciborium::de::from_reader(&mut input_slice).unwrap();
         let x: Data = ciborium::de::from_reader(&mut input_slice).unwrap();
         let w: Data = ciborium::de::from_reader(&mut input_slice).unwrap();
 
-        assert_eq!(app_id, app_id_orig);
+        assert_eq!(app, app_orig);
         assert_eq!(tx, tx_orig);
         assert_eq!(utxo, utxo_orig);
         assert_eq!(app_state, app_state_orig);

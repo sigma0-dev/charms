@@ -28,31 +28,27 @@ pub struct Transaction {
 
 impl Transaction {
     pub fn pre_req_txids(&self) -> BTreeSet<TxId> {
-        let mut txids = BTreeSet::new();
-        for utxo in self.ins.iter().chain(self.refs.iter()) {
-            if let Some(id) = utxo.id.clone() {
-                txids.insert(id.0);
-            }
-        }
-        txids
+        self.ins
+            .iter()
+            .chain(self.refs.iter())
+            .flat_map(|utxo| utxo.id.iter().map(|utxo_id| utxo_id.0))
+            .collect()
     }
 
-    pub fn app_ids(&self) -> BTreeSet<AppId> {
-        let mut app_ids = BTreeSet::new();
-        for utxo in self.ins.iter().chain(self.outs.iter()) {
-            for app_id in utxo.charm.keys() {
-                app_ids.insert(app_id.clone());
-            }
-        }
-        app_ids
+    pub fn apps(&self) -> BTreeSet<&App> {
+        self.ins
+            .iter()
+            .chain(self.outs.iter())
+            .flat_map(|utxo| utxo.charm.keys())
+            .collect()
     }
 }
 
 /// Charm is essentially an app-level UTXO that can carry tokens, NFTs, arbitrary app state.
-/// Structurally it is a sorted map of `app_id -> app_state`
-pub type Charm = BTreeMap<AppId, AppState>;
+/// Structurally it is a sorted map of `app -> app_state`
+pub type Charm = BTreeMap<App, AppState>;
 
-pub type Witness = BTreeMap<AppId, WitnessData>;
+pub type Witness = BTreeMap<App, WitnessData>;
 
 pub type VKs = BTreeMap<VkHash, VK>;
 
@@ -66,7 +62,7 @@ pub struct Utxo {
 
 impl Utxo {
     #[inline]
-    pub fn get(&self, key: &AppId) -> Option<&AppState> {
+    pub fn get(&self, key: &App) -> Option<&AppState> {
         self.charm.get(key)
     }
 }
@@ -184,13 +180,13 @@ impl<'de> Deserialize<'de> for UtxoId {
 }
 
 #[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
-pub struct AppId {
+pub struct App {
     pub tag: char,
     pub id: UtxoId,
     pub vk_hash: VkHash,
 }
 
-impl Serialize for AppId {
+impl Serialize for App {
     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -210,15 +206,15 @@ impl Serialize for AppId {
     }
 }
 
-impl<'de> Deserialize<'de> for AppId {
+impl<'de> Deserialize<'de> for App {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        struct AppIdVisitor;
+        struct AppVisitor;
 
-        impl<'de> Visitor<'de> for AppIdVisitor {
-            type Value = AppId;
+        impl<'de> Visitor<'de> for AppVisitor {
+            type Value = App;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 formatter.write_str("a string in format 'tag_char/txid_hex:index_int/vk_hash_hex' or a struct with tag, utxo_id and vk_hash fields")
@@ -278,7 +274,7 @@ impl<'de> Deserialize<'de> for AppId {
                         .map_err(|e| E::custom(format!("invalid vk_hash: {:?}", e)))?,
                 );
 
-                Ok(AppId { tag, id, vk_hash })
+                Ok(App { tag, id, vk_hash })
             }
 
             fn visit_seq<A>(self, mut seq: A) -> core::result::Result<Self::Value, A::Error>
@@ -295,14 +291,14 @@ impl<'de> Deserialize<'de> for AppId {
                     .next_element()?
                     .ok_or_else(|| de::Error::missing_field("vk_hash"))?;
 
-                Ok(AppId { tag, id, vk_hash })
+                Ok(App { tag, id, vk_hash })
             }
         }
 
         if deserializer.is_human_readable() {
-            deserializer.deserialize_str(AppIdVisitor)
+            deserializer.deserialize_str(AppVisitor)
         } else {
-            deserializer.deserialize_tuple(3, AppIdVisitor)
+            deserializer.deserialize_tuple(3, AppVisitor)
         }
     }
 }
@@ -361,30 +357,27 @@ impl TryFrom<&Data> for u64 {
 pub const TOKEN: char = 't';
 pub const NFT: char = 'n';
 
-pub fn token_amounts_balanced(app_id: &AppId, tx: &Transaction) -> bool {
+pub fn token_amounts_balanced(app: &App, tx: &Transaction) -> bool {
     match (
-        sum_token_amount(app_id, &tx.ins),
-        sum_token_amount(app_id, &tx.outs),
+        sum_token_amount(app, &tx.ins),
+        sum_token_amount(app, &tx.outs),
     ) {
         (Ok(amount_in), Ok(amount_out)) => amount_in == amount_out,
         (..) => false,
     }
 }
 
-pub fn nft_state_preserved(app_id: &AppId, tx: &Transaction) -> bool {
-    let nft_states_in = app_state_multiset(app_id, &tx.ins);
-    let nft_states_out = app_state_multiset(app_id, &tx.outs);
+pub fn nft_state_preserved(app: &App, tx: &Transaction) -> bool {
+    let nft_states_in = app_state_multiset(app, &tx.ins);
+    let nft_states_out = app_state_multiset(app, &tx.outs);
 
     nft_states_in == nft_states_out
 }
 
-pub fn app_state_multiset<'a>(
-    app_id: &AppId,
-    utxos: &'a Vec<Utxo>,
-) -> BTreeMap<&'a AppState, usize> {
+pub fn app_state_multiset<'a>(app: &App, utxos: &'a Vec<Utxo>) -> BTreeMap<&'a AppState, usize> {
     utxos
         .iter()
-        .filter_map(|utxo| utxo.get(app_id))
+        .filter_map(|utxo| utxo.get(app))
         .fold(BTreeMap::new(), |mut r, s| {
             match r.get_mut(&s) {
                 Some(count) => *count += 1,
@@ -396,11 +389,11 @@ pub fn app_state_multiset<'a>(
         })
 }
 
-pub fn sum_token_amount(self_app_id: &AppId, utxos: &[Utxo]) -> Result<u64> {
+pub fn sum_token_amount(self_app: &App, utxos: &[Utxo]) -> Result<u64> {
     let mut in_amount: u64 = 0;
     for utxo in utxos {
         // We only care about UTXOs that have our token.
-        if let Some(state) = utxo.get(self_app_id) {
+        if let Some(state) = utxo.get(self_app) {
             let utxo_amount: u64 = state.try_into()?;
             in_amount += utxo_amount;
         }
@@ -412,13 +405,13 @@ pub fn sum_token_amount(self_app_id: &AppId, utxos: &[Utxo]) -> Result<u64> {
 mod tests {
     use super::*;
 
-    pub fn zk_meme_token_policy(app_id: &AppId, tx: &Transaction, x: &Data, w: &Data) {
-        assert_eq!(app_id.tag, TOKEN);
+    pub fn zk_meme_token_policy(app: &App, tx: &Transaction, x: &Data, w: &Data) {
+        assert_eq!(app.tag, TOKEN);
 
         // is_meme_token_creator is a function that checks that
         // the spender is the creator of this meme token.
         // In our policy, the token creator can mint and burn tokens at will.
-        assert!(token_amounts_balanced(&app_id, &tx) || is_meme_token_creator(x, w));
+        assert!(token_amounts_balanced(&app, &tx) || is_meme_token_creator(x, w));
     }
 
     fn is_meme_token_creator(_x: &Data, _w: &Data) -> bool {
@@ -428,7 +421,7 @@ mod tests {
 
     #[test]
     fn test_zk_meme_token_validator() {
-        let token_app_id = AppId {
+        let token_app = App {
             tag: TOKEN,
             id: Default::default(),
             vk_hash: Default::default(),
@@ -436,11 +429,11 @@ mod tests {
 
         let ins = vec![Utxo {
             id: Some(UtxoId::default()),
-            charm: Charm::from([(token_app_id.clone(), 1u64.into())]),
+            charm: Charm::from([(token_app.clone(), 1u64.into())]),
         }];
         let outs = vec![Utxo {
             id: None,
-            charm: Charm::from([(token_app_id.clone(), 1u64.into())]),
+            charm: Charm::from([(token_app.clone(), 1u64.into())]),
         }];
 
         let tx = Transaction {
@@ -450,6 +443,6 @@ mod tests {
         };
 
         let empty = Data::empty();
-        zk_meme_token_policy(&token_app_id, &tx, &empty, &empty); // pass if no panic
+        zk_meme_token_policy(&token_app, &tx, &empty, &empty); // pass if no panic
     }
 }
