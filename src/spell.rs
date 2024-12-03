@@ -2,7 +2,7 @@ use charms_data::{AppId, Data, TxId, UtxoId, VkHash};
 use ciborium::Value;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{ProverClient, SP1Stdin};
-use spell_checker::{AppContractProof, SpellData, SpellProof};
+use spell_prover::{AppContractProof, SpellData, SpellProof};
 use std::collections::BTreeMap;
 
 /// Charm as represented in a spell.

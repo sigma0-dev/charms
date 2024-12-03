@@ -6,8 +6,9 @@ license = "MIT"
 
 [dependencies]
 anyhow = { version = "1.0.0" }
-bitcoin = { version = "0.32.0", features= ["rand", "rand-std"] }
+bitcoin = { version = "0.32.0", features = ["rand", "rand-std"] }
 charms-data = { path = "./charms-data" }
+spell-prover = { path = "./spell-prover" }
 ciborium = { version = "0.2.0" }
 clap = { version = "4.5.0", features = ["derive"] }
 hex = { version = "0.4.0" }
