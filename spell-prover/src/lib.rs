@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const V0: u32 = 0u32;
+pub const CURRENT_VERSION: u32 = V0;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpellProverInput {

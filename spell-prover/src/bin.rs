@@ -1,6 +1,6 @@
 use crate::{
     v0::{V0AppContractProof, V0SpellProof},
-    AppContractProof, SpellProof, SpellProverInput, V0,
+    AppContractProof, SpellProof, SpellProverInput, CURRENT_VERSION,
 };
 use charms_data::App;
 
@@ -36,13 +36,17 @@ pub fn main() {
     sp1_zkvm::io::commit(&(&self_spell_vk, &spell));
 }
 
+/// Get spell VK and proof for the **given version** of spell prover.
+///
+/// We're passing `self_spell_vk` because we can't have the VK for the
+/// current version as a constant.
 pub fn to_spell_proof(
     version: u32,
     self_spell_vk: [u8; 32],
     proof_data: Option<Box<[u8]>>,
 ) -> Box<dyn SpellProof> {
     match version {
-        V0 => Box::new(V0SpellProof {
+        CURRENT_VERSION => Box::new(V0SpellProof {
             vk: self_spell_vk,
             proof: proof_data,
         }),
@@ -50,14 +54,17 @@ pub fn to_spell_proof(
     }
 }
 
+/// Get app contract VK and proof for the given app.
 fn to_app_contract_proof(app: &App, proof_data: Option<Box<[u8]>>) -> Box<dyn AppContractProof> {
+    // It only makes sense for the **current version** of spell prover, so we don't need to pass
+    // version.
     let app_contract_proof = proof_data.map_or(
         V0AppContractProof {
             vk: None,
             proof: None,
         },
         |proof_data| V0AppContractProof {
-            vk: Some(app.vk_hash.0),
+            vk: Some(app.vk_hash.0), // app.vk_hash is the VK of the app contract in V0
             proof: Some(proof_data),
         },
     );
