@@ -19,7 +19,8 @@ pub type NormalizedCharm = BTreeMap<usize, Data>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NormalizedTransaction {
-    pub ins: Vec<UtxoId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ins: Option<Vec<UtxoId>>,
     pub refs: Vec<UtxoId>,
     /// When proving correctness of a spell, we can't know the transaction ID yet.
     /// We only know the index of each output charm.
@@ -28,8 +29,8 @@ pub struct NormalizedTransaction {
 
 impl NormalizedTransaction {
     pub fn pre_req_txids(&self) -> BTreeSet<TxId> {
-        self.ins
-            .iter()
+        let Some(ins) = &self.ins else { unreachable!() };
+        ins.iter()
             .chain(self.refs.iter())
             .map(|utxo_id| utxo_id.0)
             .collect()
@@ -58,6 +59,9 @@ impl NormalizedSpell {
         };
         match self.version {
             V0 => {
+                if self.tx.ins.is_none() {
+                    return false;
+                }
                 if !self
                     .tx
                     .outs
@@ -68,7 +72,10 @@ impl NormalizedSpell {
                 }
                 // check that UTXOs we're spending or referencing in this tx
                 // are created by pre-req transactions
-                if !self.tx.ins.iter().all(created_by_pre_req_spells)
+                let Some(tx_ins) = &self.tx.ins else {
+                    unreachable!()
+                };
+                if !tx_ins.iter().all(created_by_pre_req_spells)
                     || !self.tx.refs.iter().all(created_by_pre_req_spells)
                 {
                     return false;
@@ -103,8 +110,11 @@ impl NormalizedSpell {
             }
         };
 
+        let Some(n_tx_ins) = &self.tx.ins else {
+            unreachable!()
+        };
         Transaction {
-            ins: self.tx.ins.iter().map(from_utxo_id).collect(),
+            ins: n_tx_ins.iter().map(from_utxo_id).collect(),
             refs: self.tx.refs.iter().map(from_utxo_id).collect(),
             outs: self.tx.outs.iter().map(from_normalized_charm).collect(),
         }
