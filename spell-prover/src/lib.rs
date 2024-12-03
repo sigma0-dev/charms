@@ -18,15 +18,9 @@ pub struct SpellProverInput {
 pub type CharmData = BTreeMap<usize, Data>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct UtxoData {
-    pub id: UtxoId,
-    pub charm: CharmData,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TransactionData {
-    pub ins: Vec<UtxoData>,
-    pub refs: Vec<UtxoData>,
+    pub ins: Vec<UtxoId>,
+    pub refs: Vec<UtxoId>,
     /// When proving correctness of a spell, we can't know the transaction ID yet.
     /// We only know the index of each output charm.
     pub outs: Vec<CharmData>,
@@ -34,11 +28,11 @@ pub struct TransactionData {
 
 impl TransactionData {
     pub fn pre_req_txids(&self) -> BTreeSet<TxId> {
-        let mut txids = BTreeSet::new();
-        for utxo in self.ins.iter().chain(self.refs.iter()) {
-            txids.insert(utxo.id.0);
-        }
-        txids
+        self.ins
+            .iter()
+            .chain(self.refs.iter())
+            .map(|utxo_id| utxo_id.0)
+            .collect()
     }
 }
 
@@ -52,60 +46,66 @@ pub struct SpellData {
 }
 
 impl SpellData {
-    pub fn well_formed(&self) -> bool {
-        let is_well_formed = |charm_data: &CharmData| -> bool {
-            charm_data
-                .iter()
-                .all(|(i, _)| i < &self.public_inputs.len())
+    pub fn well_formed(
+        &self,
+        pre_req_spell_proofs: &BTreeMap<TxId, (SpellData, Box<dyn SpellProof>)>,
+    ) -> bool {
+        let created_by_pre_req_spells = |utxo_id: &UtxoId| -> bool {
+            pre_req_spell_proofs
+                .get(&utxo_id.0)
+                .and_then(|(pre_req_spell, _)| pre_req_spell.tx.outs.get(utxo_id.1 as usize))
+                .is_some()
         };
         match self.version {
-            0u32 => {}
-            _ => return false,
+            V0 => {
+                if !self
+                    .tx
+                    .outs
+                    .iter()
+                    .all(|charm_data| charm_data.keys().all(|i| i < &self.public_inputs.len()))
+                {
+                    return false;
+                }
+                // check that UTXOs we're spending or referencing in this tx
+                // are created by pre-req transactions
+                if !self.tx.ins.iter().all(created_by_pre_req_spells)
+                    || !self.tx.refs.iter().all(created_by_pre_req_spells)
+                {
+                    return false;
+                }
+                true
+            }
+            _ => false,
         }
-        if !self.tx.ins.iter().all(|utxo| is_well_formed(&utxo.charm)) {
-            return false;
-        }
-        if !self.tx.refs.iter().all(|utxo| is_well_formed(&utxo.charm)) {
-            return false;
-        }
-        if !self.tx.outs.iter().all(|charm| is_well_formed(charm)) {
-            return false;
-        }
-
-        true
     }
 
     pub fn app_ids(&self) -> Vec<AppId> {
         self.public_inputs.keys().cloned().collect()
     }
 
-    pub fn to_tx(&self) -> Transaction {
-        let app_ids = self.app_ids();
-
-        let to_charm = |charm_data: &CharmData| -> Charm {
-            charm_data
-                .iter()
-                .map(|(&i, data)| (app_ids[i].clone(), data.clone()))
-                .collect()
-        };
-
-        let from_utxo_data = |utxo_data: &UtxoData| -> Utxo {
+    pub fn to_tx(
+        &self,
+        pre_req_spell_proofs: &BTreeMap<TxId, (SpellData, Box<dyn SpellProof>)>,
+    ) -> Transaction {
+        let from_utxo_id = |utxo_id: &UtxoId| -> Utxo {
+            let pre_req_spell_data = &pre_req_spell_proofs[&utxo_id.0].0;
+            let pre_req_charm_data = &pre_req_spell_data.tx.outs[utxo_id.1 as usize];
             Utxo {
-                id: Some(utxo_data.id.clone()),
-                charm: to_charm(&utxo_data.charm),
+                id: Some(utxo_id.clone()),
+                charm: pre_req_spell_data.to_charm(pre_req_charm_data),
             }
         };
 
         let from_charm_data = |charm_data: &CharmData| -> Utxo {
             Utxo {
                 id: None,
-                charm: to_charm(charm_data),
+                charm: self.to_charm(charm_data),
             }
         };
 
         Transaction {
-            ins: self.tx.ins.iter().map(from_utxo_data).collect(),
-            refs: self.tx.refs.iter().map(from_utxo_data).collect(),
+            ins: self.tx.ins.iter().map(from_utxo_id).collect(),
+            refs: self.tx.refs.iter().map(from_utxo_id).collect(),
             outs: self.tx.outs.iter().map(from_charm_data).collect(),
         }
     }
@@ -115,22 +115,17 @@ impl SpellData {
         pre_req_spell_proofs: &BTreeMap<TxId, (SpellData, Box<dyn SpellProof>)>,
         app_contract_proofs: &Vec<(AppId, Box<dyn AppContractProof>)>,
     ) -> bool {
-        if !self.well_formed() {
+        if !self.well_formed(pre_req_spell_proofs) {
             return false;
         }
         let pre_req_txids = self.tx.pre_req_txids();
         if pre_req_txids.len() != pre_req_spell_proofs.len() {
             return false;
         }
-        // check that pre-req spells produce the charms we're spending in this spell
-        if !self.tx.ins.iter().all(
-            |utxo| utxo.charm == pre_req_spell_proofs[&utxo.id.0].0.tx.outs[utxo.id.1 as usize]) {
-            return false;
-        }
         if !pre_req_txids
             .iter()
             .zip(pre_req_spell_proofs)
-            .all(|(txid0, (txid, (spell, proof)))| txid == txid0 && proof.verify(&spell))
+            .all(|(txid0, (txid, (spell, proof)))| txid == txid0 && proof.verify(spell))
         {
             return false;
         }
@@ -144,13 +139,25 @@ impl SpellData {
             .zip(app_contract_proofs)
             .all(|(app_id0, (app_id, proof))| {
                 app_id == app_id0
-                    && proof.verify(app_id, &self.to_tx(), &self.public_inputs[app_id])
+                    && proof.verify(
+                        app_id,
+                        &self.to_tx(pre_req_spell_proofs),
+                        &self.public_inputs[app_id],
+                    )
             })
         {
             return false;
         }
 
         true
+    }
+
+    fn to_charm(&self, charm_data: &CharmData) -> Charm {
+        let app_ids = self.app_ids();
+        charm_data
+            .iter()
+            .map(|(&i, data)| (app_ids[i].clone(), data.clone()))
+            .collect()
     }
 }
 
