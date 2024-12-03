@@ -7,20 +7,20 @@ use std::collections::BTreeMap;
 
 /// Charm as represented in a spell.
 /// Map of `$TICKER: data`
-pub type CompactCharm = BTreeMap<String, Value>;
+pub type TextCharm = BTreeMap<String, Value>;
 
 /// UTXO as represented in a spell.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct CompactUtxo {
+pub struct TextUtxo {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub id: Option<UtxoId>,
-    pub charm: CompactCharm,
+    pub utxo_id: Option<UtxoId>,
+    pub charm: TextCharm,
 }
 
 /// Defines how spells are represented on the wire,
 /// in both human-friendly (JSON/YAML) and machine-friendly (CBOR) formats.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CompactSpell {
+pub struct TextSpell {
     pub version: u32,
 
     pub apps: BTreeMap<String, App>,
@@ -28,10 +28,10 @@ pub struct CompactSpell {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub public_inputs: Option<BTreeMap<String, Data>>,
 
-    pub ins: Vec<CompactUtxo>,
+    pub ins: Vec<TextUtxo>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub refs: Option<Vec<CompactUtxo>>,
-    pub outs: Vec<CompactUtxo>,
+    pub refs: Option<Vec<TextUtxo>>,
+    pub outs: Vec<TextUtxo>,
 
     /// folded proof of all validation predicates plus all pre-requisite spells
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -39,10 +39,10 @@ pub struct CompactSpell {
 }
 
 pub fn prove(
-    spell: CompactSpell,
-    prev_spells: &[CompactSpell],
+    spell: TextSpell,
+    prev_spells: &[TextSpell],
     binaries: BTreeMap<VkHash, Box<[u8]>>,
-) -> anyhow::Result<CompactSpell> {
+) -> anyhow::Result<TextSpell> {
     Ok(todo!())
 }
 
@@ -64,7 +64,7 @@ pub fn prove_check(
 
 #[cfg(test)]
 mod test {
-    use crate::spell::CompactCharm;
+    use crate::spell::TextCharm;
     use charms_data::{App, AppState, Charm, Data, Transaction, Utxo, UtxoId, VkHash, TOKEN};
     use ciborium::Value;
     use hex;
@@ -78,7 +78,7 @@ $TOAD_SUB: 10
 $TOAD: 9
 "#;
 
-        let charm = serde_yaml::from_str::<CompactCharm>(y).unwrap();
+        let charm = serde_yaml::from_str::<TextCharm>(y).unwrap();
         dbg!(&charm);
 
         let utxo_id =
