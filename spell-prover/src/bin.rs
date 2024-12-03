@@ -15,9 +15,9 @@ pub fn main() {
 
     let pre_req_spell_proofs = pre_req_spell_proofs
         .into_iter()
-        .map(|(txid, (spell, proof_data))| {
-            let spell_proof = to_spell_proof(spell.version, self_spell_vk.clone(), proof_data);
-            (txid, (spell, spell_proof))
+        .map(|(txid, (n_spell, proof_data))| {
+            let spell_proof = to_spell_proof(n_spell.version, self_spell_vk.clone(), proof_data);
+            (txid, (n_spell, spell_proof))
         })
         .collect();
 

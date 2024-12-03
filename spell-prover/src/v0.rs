@@ -1,4 +1,4 @@
-use crate::{AppContractProof, SpellData, SpellProof};
+use crate::{AppContractProof, NormalizedSpell, SpellProof};
 use charms_data::{
     nft_state_preserved, token_amounts_balanced, AppId, Data, Transaction, NFT, TOKEN,
 };
@@ -19,16 +19,16 @@ fn to_public_values<T: Serialize>(t: &T) -> SP1PublicValues {
 }
 
 impl<'a> SpellProof for V0SpellProof {
-    fn verify(&self, spell: &SpellData) -> bool {
+    fn verify(&self, n_spell: &NormalizedSpell) -> bool {
         match &self.proof {
             Some(proof) => Groth16Verifier::verify(
                 proof,
-                to_public_values(&(&self.vk, spell)).as_slice(),
+                to_public_values(&(&self.vk, n_spell)).as_slice(),
                 &format!("0x{}", hex::encode(&self.vk)),
                 *sp1_verifier::GROTH16_VK_BYTES,
             )
             .is_ok(),
-            None => spell.tx.outs.iter().all(|charm| charm.is_empty()),
+            None => n_spell.tx.outs.iter().all(|n_charm| n_charm.is_empty()),
         }
     }
 }
