@@ -18,12 +18,12 @@ use serde::{
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Transaction {
-    /// Input UTXOs: **must** have id set and be in the order of the hosting transaction's inputs.
-    pub ins: Vec<Utxo>,
-    /// Reference UTXOs: **must** have id set and **must** be sorted by id.
-    pub refs: Vec<Utxo>,
-    /// Transaction outputs: **must not** have id set.
-    pub outs: Vec<Utxo>,
+    /// Input UTXOs.
+    pub ins: BTreeMap<UtxoId, Charm>,
+    /// Reference UTXOs.
+    pub refs: BTreeMap<UtxoId, Charm>,
+    /// Output charms.
+    pub outs: Vec<Charm>,
 }
 
 impl Transaction {
@@ -31,15 +31,15 @@ impl Transaction {
         self.ins
             .iter()
             .chain(self.refs.iter())
-            .flat_map(|utxo| utxo.id.iter().map(|utxo_id| utxo_id.0))
+            .map(|(utxo_id, _)| utxo_id.0)
             .collect()
     }
 
     pub fn apps(&self) -> BTreeSet<&App> {
         self.ins
-            .iter()
+            .values()
             .chain(self.outs.iter())
-            .flat_map(|utxo| utxo.charm.keys())
+            .flat_map(|charm| charm.keys())
             .collect()
     }
 }
@@ -51,21 +51,6 @@ pub type Charm = BTreeMap<App, AppState>;
 pub type Witness = BTreeMap<App, WitnessData>;
 
 pub type VKs = BTreeMap<VkHash, VK>;
-
-// UTXO as presented to the validation predicate.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Utxo {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub id: Option<UtxoId>,
-    pub charm: Charm,
-}
-
-impl Utxo {
-    #[inline]
-    pub fn get(&self, key: &App) -> Option<&AppState> {
-        self.charm.get(key)
-    }
-}
 
 #[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct UtxoId(pub TxId, pub u32);
@@ -359,8 +344,8 @@ pub const NFT: char = 'n';
 
 pub fn token_amounts_balanced(app: &App, tx: &Transaction) -> bool {
     match (
-        sum_token_amount(app, &tx.ins),
-        sum_token_amount(app, &tx.outs),
+        sum_token_amount(app, tx.ins.values()),
+        sum_token_amount(app, tx.outs.iter()),
     ) {
         (Ok(amount_in), Ok(amount_out)) => amount_in == amount_out,
         (..) => false,
@@ -368,16 +353,18 @@ pub fn token_amounts_balanced(app: &App, tx: &Transaction) -> bool {
 }
 
 pub fn nft_state_preserved(app: &App, tx: &Transaction) -> bool {
-    let nft_states_in = app_state_multiset(app, &tx.ins);
-    let nft_states_out = app_state_multiset(app, &tx.outs);
+    let nft_states_in = app_state_multiset(app, tx.ins.values());
+    let nft_states_out = app_state_multiset(app, tx.outs.iter());
 
     nft_states_in == nft_states_out
 }
 
-pub fn app_state_multiset<'a>(app: &App, utxos: &'a Vec<Utxo>) -> BTreeMap<&'a AppState, usize> {
-    utxos
-        .iter()
-        .filter_map(|utxo| utxo.get(app))
+pub fn app_state_multiset<'a>(
+    app: &App,
+    charms: impl Iterator<Item = &'a Charm>,
+) -> BTreeMap<&'a AppState, usize> {
+    charms
+        .filter_map(|charm| charm.get(app))
         .fold(BTreeMap::new(), |mut r, s| {
             match r.get_mut(&s) {
                 Some(count) => *count += 1,
@@ -389,16 +376,14 @@ pub fn app_state_multiset<'a>(app: &App, utxos: &'a Vec<Utxo>) -> BTreeMap<&'a A
         })
 }
 
-pub fn sum_token_amount(self_app: &App, utxos: &[Utxo]) -> Result<u64> {
-    let mut in_amount: u64 = 0;
-    for utxo in utxos {
-        // We only care about UTXOs that have our token.
-        if let Some(state) = utxo.get(self_app) {
-            let utxo_amount: u64 = state.try_into()?;
-            in_amount += utxo_amount;
-        }
-    }
-    Ok(in_amount)
+pub fn sum_token_amount<'a>(
+    self_app: &App,
+    charms: impl Iterator<Item = &'a Charm>,
+) -> Result<u64> {
+    charms.fold(Ok(0u64), |amount, charm| match charm.get(self_app) {
+        Some(state) => Ok(amount? + u64::try_from(state)?),
+        None => amount,
+    })
 }
 
 #[cfg(test)]
@@ -427,18 +412,15 @@ mod tests {
             vk_hash: Default::default(),
         };
 
-        let ins = vec![Utxo {
-            id: Some(UtxoId::default()),
-            charm: Charm::from([(token_app.clone(), 1u64.into())]),
-        }];
-        let outs = vec![Utxo {
-            id: None,
-            charm: Charm::from([(token_app.clone(), 1u64.into())]),
-        }];
+        let ins = BTreeMap::from([(
+            UtxoId::default(),
+            Charm::from([(token_app.clone(), 1u64.into())]),
+        )]);
+        let outs = vec![Charm::from([(token_app.clone(), 1u64.into())])];
 
         let tx = Transaction {
             ins,
-            refs: vec![],
+            refs: Default::default(),
             outs,
         };
 

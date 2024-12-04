@@ -30,15 +30,12 @@ fn nft_contract_satisfied(app: &App, tx: &Transaction) -> bool {
 
 fn can_mint_nft(self_app: &App, tx: &Transaction) -> bool {
     // can only mint an NFT with this contract if spending a UTXO with the same ID.
-    assert!(tx
-        .ins
-        .iter()
-        .any(|utxo| utxo.id == Some(self_app.id.clone())));
+    assert!(tx.ins.iter().any(|(utxo_id, _)| utxo_id == &self_app.id));
     // can mint no more than one NFT.
     assert_eq!(
         tx.outs
             .iter()
-            .filter(|&utxo| utxo.charm.iter().any(|(app, _)| app.id == self_app.id))
+            .filter(|&charm| charm.iter().any(|(app, _)| app.id == self_app.id))
             .count(),
         1
     );
@@ -55,7 +52,7 @@ fn can_mint_token(app: &App, tx: &Transaction) -> bool {
     if tx
         .ins
         .iter()
-        .any(|utxo| charm_has_managing_nft(&utxo.charm, &app.id))
+        .any(|(_, charm)| charm_has_managing_nft(charm, &app.id))
     {
         return true;
     }

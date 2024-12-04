@@ -1,7 +1,7 @@
 pub mod bin;
 pub mod v0;
 
-use charms_data::{App, Charm, Data, Transaction, TxId, Utxo, UtxoId};
+use charms_data::{App, Charm, Data, Transaction, TxId, UtxoId};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -97,27 +97,21 @@ impl NormalizedSpell {
         &self,
         pre_req_spell_proofs: &BTreeMap<TxId, (NormalizedSpell, Box<dyn SpellProof>)>,
     ) -> Transaction {
-        let from_utxo_id = |utxo_id: &UtxoId| -> Utxo {
-            let pre_req_spell_data = &pre_req_spell_proofs[&utxo_id.0].0;
-            let pre_req_charm_data = &pre_req_spell_data.tx.outs[utxo_id.1 as usize];
-            Utxo {
-                id: Some(utxo_id.clone()),
-                charm: pre_req_spell_data.to_charm(pre_req_charm_data),
-            }
+        let from_utxo_id = |utxo_id: &UtxoId| -> (UtxoId, Charm) {
+            let pre_req_spell = &pre_req_spell_proofs[&utxo_id.0].0;
+            (
+                utxo_id.clone(),
+                pre_req_spell.to_charm(&pre_req_spell.tx.outs[utxo_id.1 as usize]),
+            )
         };
 
-        let from_normalized_charm = |n_charm: &NormalizedCharm| -> Utxo {
-            Utxo {
-                id: None,
-                charm: self.to_charm(n_charm),
-            }
-        };
+        let from_normalized_charm = |n_charm: &NormalizedCharm| -> Charm { self.to_charm(n_charm) };
 
-        let Some(n_tx_ins) = &self.tx.ins else {
+        let Some(tx_ins) = &self.tx.ins else {
             unreachable!()
         };
         Transaction {
-            ins: n_tx_ins.iter().map(from_utxo_id).collect(),
+            ins: tx_ins.iter().map(from_utxo_id).collect(),
             refs: self.tx.refs.iter().map(from_utxo_id).collect(),
             outs: self.tx.outs.iter().map(from_normalized_charm).collect(),
         }
