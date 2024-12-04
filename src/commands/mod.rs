@@ -1,3 +1,4 @@
+pub mod app;
 pub mod spell;
 pub mod tx;
 
@@ -21,6 +22,12 @@ pub enum Commands {
     Tx {
         #[command(subcommand)]
         command: TxCommands,
+    },
+
+    /// App contract commands
+    App {
+        #[command(subcommand)]
+        command: AppCommands,
     },
 }
 
@@ -47,5 +54,14 @@ pub enum TxCommands {
     ExtractSpell {
         #[arg(long)]
         tx: String,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum AppCommands {
+    /// VK stuff
+    Vk {
+        /// Path to the app's RISC-V binary
+        path: String,
     },
 }
