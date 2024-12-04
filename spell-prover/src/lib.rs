@@ -13,7 +13,7 @@ pub struct SpellProverInput {
     pub self_spell_vk: [u8; 32],
     pub pre_req_spell_proofs: Vec<(TxId, (NormalizedSpell, Option<Box<[u8]>>))>,
     pub spell: NormalizedSpell,
-    pub app_contract_proofs: Vec<(App, Option<Box<[u8]>>)>,
+    pub app_contract_proofs: Vec<(App, Option<()>)>, // proofs are provided in input stream data
 }
 
 pub type NormalizedCharm = BTreeMap<usize, Data>;

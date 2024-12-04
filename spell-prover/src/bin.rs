@@ -23,8 +23,8 @@ pub fn main() {
 
     let app_contract_proofs = app_contract_proofs
         .into_iter()
-        .map(|(app, proof_data)| {
-            let app_contract_proof = to_app_contract_proof(&app, proof_data);
+        .map(|(app, proof_opt)| {
+            let app_contract_proof = to_app_contract_proof(&app, proof_opt);
             (app, app_contract_proof)
         })
         .collect();
@@ -55,19 +55,19 @@ pub fn to_spell_proof(
 }
 
 /// Get app contract VK and proof for the given app.
-fn to_app_contract_proof(app: &App, proof_data: Option<Box<[u8]>>) -> Box<dyn AppContractProof> {
+fn to_app_contract_proof(app: &App, proof_opt: Option<()>) -> Box<dyn AppContractProof> {
     // It only makes sense for the **current version** of spell prover, so we don't need to pass
     // version.
-    let app_contract_proof = proof_data.map_or(
-        V0AppContractProof {
-            vk: None,
-            proof: None,
-        },
-        |proof_data| V0AppContractProof {
-            vk: Some(app.vk_hash.0), // app.vk_hash is the VK of the app contract in V0
-            proof: Some(proof_data),
-        },
-    );
+    let app_contract_proof = match proof_opt {
+        None => V0AppContractProof { vk: None },
+        Some(()) => {
+            let vk: [u32; 8] = unsafe {
+                let vk: [u8; 32] = app.vk_hash.0; // app.vk_hash is the VK of the app contract in V0
+                std::mem::transmute(vk)
+            };
+            V0AppContractProof { vk: Some(vk) }
+        }
+    };
     Box::new(app_contract_proof)
 }
 

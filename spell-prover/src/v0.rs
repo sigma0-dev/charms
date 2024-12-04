@@ -5,6 +5,7 @@ use charms_data::{
 use serde::{Deserialize, Serialize};
 use sp1_primitives::io::SP1PublicValues;
 use sp1_verifier::Groth16Verifier;
+use sp1_zkvm::lib::verify::verify_sp1_proof;
 
 #[derive(Serialize, Deserialize)]
 pub struct V0SpellProof {
@@ -35,22 +36,18 @@ impl<'a> SpellProof for V0SpellProof {
 
 #[derive(Serialize, Deserialize)]
 pub struct V0AppContractProof {
-    pub vk: Option<[u8; 32]>,
-    pub proof: Option<Box<[u8]>>,
+    pub vk: Option<[u32; 8]>,
 }
 
 impl AppContractProof for V0AppContractProof {
     fn verify(&self, app: &App, tx: &Transaction, x: &Data) -> bool {
-        match &self.proof {
-            Some(proof) => {
-                let Some(vk) = &self.vk else { unreachable!() };
-                Groth16Verifier::verify(
-                    proof,
-                    to_public_values(&(app, tx, x)).as_slice(),
-                    &format!("0x{}", hex::encode(vk)),
-                    *sp1_verifier::GROTH16_VK_BYTES,
-                )
-                .is_ok()
+        match &self.vk {
+            Some(vk) => {
+                let Ok(pv) = to_public_values(&(app, tx, x)).hash().try_into() else {
+                    unreachable!()
+                };
+                verify_sp1_proof(vk, &pv);
+                true
             }
             None => match app.tag {
                 TOKEN => token_amounts_balanced(app, &tx),

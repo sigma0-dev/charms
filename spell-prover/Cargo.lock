@@ -523,9 +523,12 @@ dependencies = [
  "getrandom",
  "lazy_static",
  "libm",
+ "p3-baby-bear",
+ "p3-field",
  "rand",
  "sha2",
  "sp1-lib",
+ "sp1-primitives",
 ]
 
 [[package]]
