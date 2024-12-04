@@ -18,9 +18,9 @@ use serde::{
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Transaction {
-    /// Input UTXOs: **must** have id set.
+    /// Input UTXOs: **must** have id set and be in the order of the hosting transaction's inputs.
     pub ins: Vec<Utxo>,
-    /// Reference UTXOs: **must** have id set.
+    /// Reference UTXOs: **must** have id set and **must** be sorted by id.
     pub refs: Vec<Utxo>,
     /// Transaction outputs: **must not** have id set.
     pub outs: Vec<Utxo>,

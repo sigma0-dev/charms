@@ -20,11 +20,15 @@ pub type NormalizedCharm = BTreeMap<usize, Data>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NormalizedTransaction {
+    /// Input UTXO list. **May** theoretically be empty.
+    /// **Must** be in the order of the hosting transaction's inputs.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ins: Option<Vec<UtxoId>>,
-    pub refs: Vec<UtxoId>,
+    /// Reference UTXO list. **May** be empty.
+    pub refs: BTreeSet<UtxoId>,
     /// When proving correctness of a spell, we can't know the transaction ID yet.
     /// We only know the index of each output charm.
+    /// **Must** be in the order of the hosting transaction's outputs.
     pub outs: Vec<NormalizedCharm>,
 }
 
@@ -52,39 +56,37 @@ impl NormalizedSpell {
         &self,
         pre_req_spell_proofs: &BTreeMap<TxId, (NormalizedSpell, Box<dyn SpellProof>)>,
     ) -> bool {
+        if self.version != CURRENT_VERSION {
+            return false;
+        }
         let created_by_pre_req_spells = |utxo_id: &UtxoId| -> bool {
             pre_req_spell_proofs
                 .get(&utxo_id.0)
                 .and_then(|(pre_req_spell, _)| pre_req_spell.tx.outs.get(utxo_id.1 as usize))
                 .is_some()
         };
-        match self.version {
-            V0 => {
-                if self.tx.ins.is_none() {
-                    return false;
-                }
-                if !self
-                    .tx
-                    .outs
-                    .iter()
-                    .all(|n_charm| n_charm.keys().all(|i| i < &self.app_public_inputs.len()))
-                {
-                    return false;
-                }
-                // check that UTXOs we're spending or referencing in this tx
-                // are created by pre-req transactions
-                let Some(tx_ins) = &self.tx.ins else {
-                    unreachable!()
-                };
-                if !tx_ins.iter().all(created_by_pre_req_spells)
-                    || !self.tx.refs.iter().all(created_by_pre_req_spells)
-                {
-                    return false;
-                }
-                true
-            }
-            _ => false,
+        if self.tx.ins.is_none() {
+            return false;
         }
+        if !self
+            .tx
+            .outs
+            .iter()
+            .all(|n_charm| n_charm.keys().all(|i| i < &self.app_public_inputs.len()))
+        {
+            return false;
+        }
+        // check that UTXOs we're spending or referencing in this tx
+        // are created by pre-req transactions
+        let Some(tx_ins) = &self.tx.ins else {
+            unreachable!()
+        };
+        if !tx_ins.iter().all(created_by_pre_req_spells)
+            || !self.tx.refs.iter().all(created_by_pre_req_spells)
+        {
+            return false;
+        }
+        true
     }
 
     pub fn apps(&self) -> Vec<App> {
