@@ -30,7 +30,7 @@ pub struct Spell {
     pub apps: BTreeMap<String, App>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub public_inputs: Option<BTreeMap<String, Data>>,
+    pub public_inputs: Option<BTreeMap<String, Value>>,
 
     pub ins: Vec<Utxo>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -69,7 +69,10 @@ impl Spell {
             .map(|(k, app)| {
                 (
                     app.clone(),
-                    keyed_public_inputs.get(k).cloned().unwrap_or_default(),
+                    keyed_public_inputs
+                        .get(k)
+                        .map(|v| Data::from(v))
+                        .unwrap_or_default(),
                 )
             })
             .collect();
@@ -118,6 +121,36 @@ impl Spell {
             app_public_inputs,
         };
         Ok(norm_spell)
+    }
+}
+
+impl From<&NormalizedSpell> for Spell {
+    fn from(norm_spell: &NormalizedSpell) -> Self {
+        let apps = norm_spell
+            .app_public_inputs
+            .iter()
+            .zip(0..)
+            .map(|((app, _), i)| (format!("${}", i), app.clone()))
+            .collect();
+        let public_inputs: BTreeMap<String, Value> = norm_spell
+            .app_public_inputs
+            .iter()
+            .zip(0..)
+            .map(|((app, data), i)| (format!("${}", i), data.try_into().unwrap()))
+            .collect();
+        let public_inputs = Some(public_inputs);
+
+        let ins = todo!(); // need to have the hosting tx to get utxo_ids of inputs
+
+        Self {
+            version: norm_spell.version,
+            apps,
+            public_inputs,
+            ins,
+            refs: None,
+            outs: vec![],
+            proof: None,
+        }
     }
 }
 
