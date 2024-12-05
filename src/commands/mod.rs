@@ -3,6 +3,7 @@ pub mod spell;
 pub mod tx;
 
 use clap::{Parser, Subcommand};
+use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -35,6 +36,16 @@ pub enum Commands {
 pub enum SpellCommands {
     Parse,
     Print,
+    Prove {
+        #[arg(long)]
+        tx: String,
+
+        #[arg(long)]
+        prev_txs: Vec<String>,
+
+        #[arg(long, value_parser)]
+        app_bins: Vec<PathBuf>,
+    },
 }
 
 #[derive(Subcommand)]

@@ -9,7 +9,7 @@ use sp1_zkvm::lib::verify::verify_sp1_proof;
 
 #[derive(Serialize, Deserialize)]
 pub struct V0SpellProof {
-    pub vk: [u8; 32],
+    pub vk: String,
     pub proof: Option<Box<[u8]>>,
 }
 
@@ -25,7 +25,7 @@ impl<'a> SpellProof for V0SpellProof {
             Some(proof) => Groth16Verifier::verify(
                 proof,
                 to_public_values(&(&self.vk, n_spell)).as_slice(),
-                &format!("0x{}", hex::encode(&self.vk)),
+                &self.vk,
                 *sp1_verifier::GROTH16_VK_BYTES,
             )
             .is_ok(),

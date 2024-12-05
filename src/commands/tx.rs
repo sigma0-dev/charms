@@ -4,7 +4,7 @@ use bitcoin::{
     consensus::encode::{deserialize_hex, serialize_hex},
     Amount, FeeRate, OutPoint, Transaction,
 };
-use charms::{spell::TextSpell, tx, tx::add_spell};
+use charms::{spell::Spell, tx, tx::add_spell};
 use std::str::FromStr;
 
 fn parse_outpoint(s: &str) -> Result<OutPoint> {
@@ -29,7 +29,7 @@ pub fn tx_add_spell(command: TxCommands) -> Result<()> {
     };
 
     // Read spell data from stdin
-    let spell: TextSpell = ciborium::de::from_reader(std::io::stdin())?;
+    let spell: Spell = ciborium::de::from_reader(std::io::stdin())?;
 
     // Serialize spell into CBOR
     let mut spell_data = vec![];
@@ -70,10 +70,7 @@ pub fn tx_add_spell(command: TxCommands) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn tx_extract_spell(command: TxCommands) -> Result<()> {
-    let TxCommands::ExtractSpell { tx } = command else {
-        unreachable!()
-    };
+pub(crate) fn tx_extract_spell(tx: String) -> Result<()> {
     let tx = deserialize_hex::<Transaction>(&tx)?;
 
     let spell = tx::extract_spell(&tx)?;

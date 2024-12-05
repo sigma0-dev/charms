@@ -1,7 +1,4 @@
-use crate::{
-    script::{control_block, data_script, taproot_spend_info},
-    spell::TextSpell,
-};
+use crate::script::{control_block, data_script, taproot_spend_info};
 use anyhow::{bail, ensure, Error};
 use bitcoin::{
     self,
@@ -18,6 +15,7 @@ use bitcoin::{
     Txid, Weight, Witness, XOnlyPublicKey,
 };
 use rand::thread_rng;
+use spell_prover::{NormalizedSpell, Proof};
 
 /// `add_spell` adds `spell` to `tx`:
 /// 1. it builds `commit_spell_tx` transaction which creates a *committed spell* Tapscript output
@@ -190,7 +188,7 @@ fn append_witness_data(
     witness.push(control_block(public_key, script).serialize());
 }
 
-pub fn extract_spell(tx: &Transaction) -> anyhow::Result<TextSpell, Error> {
+pub fn extract_spell(tx: &Transaction) -> anyhow::Result<(NormalizedSpell, Proof), Error> {
     let script_data = &tx.input[tx.input.len() - 1].witness[1];
 
     // Parse script_data into Script
@@ -211,8 +209,8 @@ pub fn extract_spell(tx: &Transaction) -> anyhow::Result<TextSpell, Error> {
     };
 
     let spell_data = push_bytes.as_bytes();
-    let spell: TextSpell = ciborium::de::from_reader(spell_data)?;
-    Ok(spell)
+    let (spell, proof): (NormalizedSpell, Proof) = ciborium::de::from_reader(spell_data)?;
+    Ok((spell, proof))
 }
 
 #[cfg(test)]

@@ -10,8 +10,8 @@ pub const CURRENT_VERSION: u32 = V0;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpellProverInput {
-    pub self_spell_vk: [u8; 32],
-    pub pre_req_spell_proofs: Vec<(TxId, (NormalizedSpell, Option<Box<[u8]>>))>,
+    pub self_spell_vk: String,
+    pub pre_req_spell_proofs: Vec<(TxId, (NormalizedSpell, Option<Proof>))>,
     pub spell: NormalizedSpell,
     pub app_contract_proofs: Vec<(App, Option<()>)>, // proofs are provided in input stream data
 }
@@ -41,6 +41,8 @@ impl NormalizedTransaction {
             .collect()
     }
 }
+
+pub type Proof = Box<[u8]>;
 
 /// Can be committed as public input.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -93,12 +95,9 @@ impl NormalizedSpell {
         self.app_public_inputs.keys().cloned().collect()
     }
 
-    pub fn to_tx(
-        &self,
-        pre_req_spell_proofs: &BTreeMap<TxId, (NormalizedSpell, Box<dyn SpellProof>)>,
-    ) -> Transaction {
+    pub fn to_tx(&self, pre_req_spell_proofs: &BTreeMap<TxId, NormalizedSpell>) -> Transaction {
         let from_utxo_id = |utxo_id: &UtxoId| -> (UtxoId, Charm) {
-            let pre_req_spell = &pre_req_spell_proofs[&utxo_id.0].0;
+            let pre_req_spell = &pre_req_spell_proofs[&utxo_id.0];
             (
                 utxo_id.clone(),
                 pre_req_spell.to_charm(&pre_req_spell.tx.outs[utxo_id.1 as usize]),
@@ -141,6 +140,7 @@ impl NormalizedSpell {
         if apps.len() != app_contract_proofs.len() {
             return false;
         }
+        let pre_req_spells = prev_spells(pre_req_spell_proofs);
         if !apps
             .iter()
             .zip(app_contract_proofs)
@@ -148,7 +148,7 @@ impl NormalizedSpell {
                 app == app0
                     && proof.verify(
                         app,
-                        &self.to_tx(pre_req_spell_proofs),
+                        &self.to_tx(&pre_req_spells),
                         &self.app_public_inputs[app],
                     )
             })
@@ -166,6 +166,15 @@ impl NormalizedSpell {
             .map(|(&i, data)| (apps[i].clone(), data.clone()))
             .collect()
     }
+}
+
+fn prev_spells(
+    pre_req_spell_proofs: &BTreeMap<TxId, (NormalizedSpell, Box<dyn SpellProof>)>,
+) -> BTreeMap<TxId, NormalizedSpell> {
+    pre_req_spell_proofs
+        .iter()
+        .map(|(txid, (n_spell, _))| (txid.clone(), n_spell.clone()))
+        .collect()
 }
 
 pub trait SpellProof {

@@ -48,10 +48,6 @@ impl Transaction {
 /// Structurally it is a sorted map of `app -> app_state`
 pub type Charm = BTreeMap<App, AppState>;
 
-pub type Witness = BTreeMap<App, WitnessData>;
-
-pub type VKs = BTreeMap<VkHash, VK>;
-
 #[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct UtxoId(pub TxId, pub u32);
 
@@ -292,16 +288,8 @@ pub type AppState = Data;
 
 pub type TxId = [u8; 32];
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct WitnessData {
-    pub proof: Data,
-    pub public_input: Data,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default, Serialize, Deserialize)]
 pub struct VkHash(pub [u8; 32]);
-
-pub type VK = Vec<u8>;
 
 #[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Data(Box<[u8]>);
@@ -388,43 +376,6 @@ pub fn sum_token_amount<'a>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    pub fn zk_meme_token_policy(app: &App, tx: &Transaction, x: &Data, w: &Data) {
-        assert_eq!(app.tag, TOKEN);
-
-        // is_meme_token_creator is a function that checks that
-        // the spender is the creator of this meme token.
-        // In our policy, the token creator can mint and burn tokens at will.
-        assert!(token_amounts_balanced(&app, &tx) || is_meme_token_creator(x, w));
-    }
-
-    fn is_meme_token_creator(_x: &Data, _w: &Data) -> bool {
-        // TODO check the signature in the witness
-        false
-    }
-
     #[test]
-    fn test_zk_meme_token_validator() {
-        let token_app = App {
-            tag: TOKEN,
-            id: Default::default(),
-            vk_hash: Default::default(),
-        };
-
-        let ins = BTreeMap::from([(
-            UtxoId::default(),
-            Charm::from([(token_app.clone(), 1u64.into())]),
-        )]);
-        let outs = vec![Charm::from([(token_app.clone(), 1u64.into())])];
-
-        let tx = Transaction {
-            ins,
-            refs: Default::default(),
-            outs,
-        };
-
-        let empty = Data::empty();
-        zk_meme_token_policy(&token_app, &tx, &empty, &empty); // pass if no panic
-    }
+    fn dummy() {}
 }

@@ -13,10 +13,11 @@ fn main() -> Result<()> {
         Commands::Spell { command } => match command {
             SpellCommands::Parse => spell::spell_parse(),
             SpellCommands::Print => spell::spell_print(),
+            SpellCommands::Prove { .. } => spell::spell_prove(command),
         },
         Commands::Tx { command } => match command {
             TxCommands::AddSpell { .. } => tx::tx_add_spell(command),
-            TxCommands::ExtractSpell { .. } => tx::tx_extract_spell(command),
+            TxCommands::ExtractSpell { tx } => tx::tx_extract_spell(tx),
         },
         Commands::App { command } => match command {
             AppCommands::Vk { path } => app::vk(path),
@@ -25,4 +26,7 @@ fn main() -> Result<()> {
 }
 
 #[cfg(test)]
-mod tests {}
+mod test {
+    #[test]
+    fn dummy() {}
+}

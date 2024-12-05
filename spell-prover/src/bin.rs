@@ -42,7 +42,7 @@ pub fn main() {
 /// current version as a constant.
 pub fn to_spell_proof(
     version: u32,
-    self_spell_vk: [u8; 32],
+    self_spell_vk: String,
     proof_data: Option<Box<[u8]>>,
 ) -> Box<dyn SpellProof> {
     match version {

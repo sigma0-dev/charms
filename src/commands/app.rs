@@ -1,15 +1,13 @@
 use anyhow::Result;
-use sp1_sdk::{HashableKey, ProverClient};
-use std::{fs, mem};
+use charms::app;
+use std::fs;
 
-pub(crate) fn vk(path: String) -> Result<()> {
-    let client = ProverClient::new();
+pub fn vk(path: String) -> Result<()> {
+    let prover = app::Prover::new();
+
     let binary = fs::read(path)?;
-    let (_pk, vk) = client.setup(&binary);
-    let vk: [u8; 32] = unsafe {
-        let vk: [u32; 8] = vk.hash_u32();
-        mem::transmute(vk)
-    };
+    let vk: [u8; 32] = prover.vk(&binary);
+
     println!("{}", hex::encode(&vk));
     Ok(())
 }
