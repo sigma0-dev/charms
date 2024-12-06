@@ -1,14 +1,16 @@
 #![no_std]
 #![feature(auto_traits, negative_impls)]
 
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, ensure, Error, Result};
 use ark_std::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
-    format, vec,
+    format,
+    string::{String, ToString},
+    vec,
     vec::Vec,
 };
-use core::{convert::TryInto, fmt};
+use core::{convert::TryInto, fmt, fmt::Display};
 use serde::{
     de,
     de::{DeserializeOwned, SeqAccess, Visitor},
@@ -48,22 +50,23 @@ impl Transaction {
 /// Structurally it is a sorted map of `app -> app_state`
 pub type Charm = BTreeMap<App, AppState>;
 
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct UtxoId(pub TxId, pub u32);
 
 impl UtxoId {
     pub fn to_bytes(&self) -> [u8; 36] {
         let mut bytes = [0u8; 36];
-        bytes[..32].copy_from_slice(&self.0); // Copy TxId
+        bytes[..32].copy_from_slice(&self.0 .0); // Copy TxId
         bytes[32..].copy_from_slice(&self.1.to_le_bytes()); // Copy index as little-endian
         bytes
     }
 
     pub fn from_bytes(bytes: [u8; 36]) -> Self {
-        let mut txid = [0u8; 32];
-        txid.copy_from_slice(&bytes[..32]);
+        let mut txid_bytes = [0u8; 32];
+        txid_bytes.copy_from_slice(&bytes[..32]);
         let index = u32::from_le_bytes(bytes[32..].try_into().unwrap());
-        UtxoId(txid, index)
+        UtxoId(TxId(txid_bytes), index)
     }
 
     pub fn from_str(s: &str) -> Result<Self> {
@@ -72,17 +75,23 @@ impl UtxoId {
             return Err(anyhow!("expected format: txid_hex:index"));
         }
 
-        let txid_bytes =
-            hex::decode(parts[0]).map_err(|e| anyhow!("invalid txid string: {:?}", e))?;
-        let txid = txid_bytes
-            .try_into()
-            .map_err(|e| anyhow!("invalid txid bytes: {:?}", e))?;
+        let txid = TxId::from_str(parts[0])?;
 
         let index = parts[1]
             .parse::<u32>()
             .map_err(|e| anyhow!("invalid index: {}", e))?;
 
         Ok(UtxoId(txid, index))
+    }
+
+    fn to_string_internal(&self) -> String {
+        format!("{}:{}", self.0.to_string(), self.1)
+    }
+}
+
+impl Display for UtxoId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.to_string_internal().fmt(f)
     }
 }
 
@@ -92,7 +101,7 @@ impl Serialize for UtxoId {
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            serializer.serialize_str(&format!("{}:{}", hex::encode(self.0), self.1))
+            serializer.serialize_str(&self.to_string())
         } else {
             serializer.serialize_bytes(self.to_bytes().as_ref())
         }
@@ -118,27 +127,7 @@ impl<'de> Deserialize<'de> for UtxoId {
             where
                 E: de::Error,
             {
-                // Split at ':'
-                let parts: Vec<&str> = value.split(':').collect();
-                if parts.len() != 2 {
-                    return Err(E::custom("expected format: txid_hex:index"));
-                }
-
-                // Decode txid hex
-                let txid_bytes = hex::decode(parts[0])
-                    .map_err(|e| E::custom(format!("invalid txid hex: {}", e)))?;
-
-                // Convert tx_bytes into TxId array
-                let txid = txid_bytes
-                    .try_into()
-                    .map_err(|e| E::custom(format!("invalid txid bytes: {:?}", e)))?;
-
-                // Parse index
-                let index = parts[1]
-                    .parse::<u32>()
-                    .map_err(|e| E::custom(format!("invalid index: {}", e)))?;
-
-                Ok(UtxoId(txid, index))
+                UtxoId::from_str(value).map_err(E::custom)
             }
 
             // Handle non-human-readable byte format [u8; 36]
@@ -160,11 +149,18 @@ impl<'de> Deserialize<'de> for UtxoId {
     }
 }
 
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct App {
     pub tag: char,
     pub id: UtxoId,
     pub vk_hash: VkHash,
+}
+
+impl Display for App {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}/{}/{}", self.tag, self.id, self.vk_hash)
+    }
 }
 
 impl Serialize for App {
@@ -173,10 +169,7 @@ impl Serialize for App {
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            let tag = self.tag;
-            let id = format!("{}:{}", hex::encode(self.id.0), self.id.1);
-            let vk_hash = hex::encode(&self.vk_hash.0);
-            serializer.serialize_str(&format!("{}/{}/{}", tag, id, vk_hash))
+            serializer.serialize_str(&self.to_string())
         } else {
             let mut s = serializer.serialize_tuple(3)?;
             s.serialize_element(&self.tag)?;
@@ -226,24 +219,7 @@ impl<'de> Deserialize<'de> for App {
                     tag
                 };
 
-                let id = {
-                    let utxo_id_parts: Vec<&str> = parts[1].split(':').collect();
-                    if utxo_id_parts.len() != 2 {
-                        return Err(E::custom("expected utxo_id format: txid_hex:index"));
-                    }
-                    let txid_bytes = hex::decode(utxo_id_parts[0])
-                        .map_err(|e| E::custom(format!("invalid txid hex: {}", e)))?;
-
-                    let txid = txid_bytes
-                        .try_into()
-                        .map_err(|e| E::custom(format!("invalid txid bytes: {:?}", e)))?;
-
-                    let index = utxo_id_parts[1]
-                        .parse::<u32>()
-                        .map_err(|e| E::custom(format!("invalid index: {}", e)))?;
-
-                    UtxoId(txid, index)
-                };
+                let id = UtxoId::from_str(parts[1]).map_err(E::custom)?;
 
                 let vk_hash_bytes = hex::decode(parts[2])
                     .map_err(|e| E::custom(format!("invalid vk_hash hex: {}", e)))?;
@@ -286,10 +262,95 @@ impl<'de> Deserialize<'de> for App {
 
 pub type AppState = Data;
 
-pub type TxId = [u8; 32];
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub struct TxId(pub [u8; 32]);
 
+impl TxId {
+    pub fn from_str(s: &str) -> Result<Self> {
+        ensure!(s.len() == 64, "expected 64 hex characters");
+        let bytes = hex::decode(s).map_err(|e| anyhow!("invalid txid hex: {}", e))?;
+        let mut txid: [u8; 32] = bytes.try_into().unwrap();
+        txid.reverse();
+        Ok(TxId(txid))
+    }
+
+    fn to_string_internal(&self) -> String {
+        let mut txid = self.0;
+        txid.reverse();
+        hex::encode(&txid)
+    }
+}
+
+impl Display for TxId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.to_string_internal().fmt(f)
+    }
+}
+
+impl Serialize for TxId {
+    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if serializer.is_human_readable() {
+            serializer.serialize_str(&self.to_string())
+        } else {
+            serializer.serialize_bytes(&self.0)
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for TxId {
+    fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct TxIdVisitor;
+
+        impl<'de> Visitor<'de> for TxIdVisitor {
+            type Value = TxId;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a string of 64 hex characters or a byte array of 32 bytes")
+            }
+
+            // Handle human-readable format ("txid_hex")
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                TxId::from_str(value).map_err(E::custom)
+            }
+
+            // Handle non-human-readable byte format [u8; 32]
+            fn visit_bytes<E>(self, v: &[u8]) -> core::result::Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(TxId(v.try_into().map_err(|e| {
+                    E::custom(format!("invalid txid bytes: {}", e))
+                })?))
+            }
+        }
+
+        if deserializer.is_human_readable() {
+            deserializer.deserialize_str(TxIdVisitor)
+        } else {
+            deserializer.deserialize_bytes(TxIdVisitor)
+        }
+    }
+}
+
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default, Serialize, Deserialize)]
 pub struct VkHash(pub [u8; 32]);
+
+impl Display for VkHash {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        hex::encode(&self.0).fmt(f)
+    }
+}
 
 #[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Data(Box<[u8]>);
@@ -376,6 +437,32 @@ pub fn sum_token_amount<'a>(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn doesnt_crash(s in "\\PC*") {
+            let _ = TxId::from_str(&s);
+        }
+
+        #[test]
+        fn txid_roundtrip(txid: TxId) {
+            let s = txid.to_string();
+            let txid2 = TxId::from_str(&s).unwrap();
+            prop_assert_eq!(txid, txid2);
+        }
+    }
+
+    #[test]
+    fn minimal_txid() {
+        let tx_id_bytes: [u8; 32] = [&[1u8], [0u8; 31].as_ref()].concat().try_into().unwrap();
+        let tx_id = TxId(tx_id_bytes);
+        let tx_id_str = tx_id.to_string();
+        let tx_id_str_expected = "0000000000000000000000000000000000000000000000000000000000000001";
+        assert_eq!(tx_id_str, tx_id_str_expected);
+    }
+
     #[test]
     fn dummy() {}
 }
