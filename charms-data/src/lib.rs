@@ -376,6 +376,7 @@ impl fmt::Debug for VkHash {
     }
 }
 
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Default, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Data(Box<[u8]>);
 
@@ -488,6 +489,54 @@ mod tests {
             let s = txid.to_string();
             let txid2 = TxId::from_str(&s).unwrap();
             prop_assert_eq!(txid, txid2);
+        }
+
+        #[test]
+        fn data_serde_roundtrip(data: Data) {
+            let bytes = postcard::to_stdvec(&data).unwrap();
+            let deserialize_result = postcard::from_bytes::<Data>(&bytes);
+            let data2 = deserialize_result.unwrap();
+            prop_assert_eq!(data, data2);
+        }
+
+        #[test]
+        fn vk_hash_serde_roundtrip(vk_hash: VkHash) {
+            let bytes = postcard::to_stdvec(&vk_hash).unwrap();
+            let deserialize_result = postcard::from_bytes::<VkHash>(&bytes);
+            let vk_hash2 = deserialize_result.unwrap();
+            prop_assert_eq!(vk_hash, vk_hash2);
+        }
+
+        #[test]
+        fn app_serde_roundtrip(app: App) {
+            let bytes = postcard::to_stdvec(&app).unwrap();
+            let deserialize_result = postcard::from_bytes::<App>(&bytes);
+            let app2 = deserialize_result.unwrap();
+            prop_assert_eq!(app, app2);
+        }
+
+        #[test]
+        fn utxo_id_serde_roundtrip(utxo_id: UtxoId) {
+            let bytes = postcard::to_stdvec(&utxo_id).unwrap();
+            let deserialize_result = postcard::from_bytes::<UtxoId>(&bytes);
+            let utxo_id2 = deserialize_result.unwrap();
+            prop_assert_eq!(utxo_id, utxo_id2);
+        }
+
+        #[test]
+        fn charm_serde_roundtrip(charm: Charm) {
+            let bytes = postcard::to_stdvec(&charm).unwrap();
+            let deserialize_result = postcard::from_bytes::<Charm>(&bytes);
+            let charm2 = deserialize_result.unwrap();
+            prop_assert_eq!(charm, charm2);
+        }
+
+        #[test]
+        fn tx_id_serde_roundtrip(tx_id: TxId) {
+            let bytes = postcard::to_stdvec(&tx_id).unwrap();
+            let deserialize_result = postcard::from_bytes::<TxId>(&bytes);
+            let tx_id2 = deserialize_result.unwrap();
+            prop_assert_eq!(tx_id, tx_id2);
         }
     }
 
