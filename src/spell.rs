@@ -175,7 +175,8 @@ pub fn prove(
         app_contract_proofs: norm_spell
             .app_public_inputs
             .iter()
-            .map(|(app, _)| (app.clone(), true)) // TODO only pass true if we have a proof
+            .zip(0..)
+            .filter_map(|((app, _), i)| (app_binaries.get(&app.vk_hash).map(|_| i as usize)))
             .collect(),
     };
     let input_vec: Vec<u8> = {

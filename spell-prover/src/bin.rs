@@ -39,11 +39,13 @@ pub fn run(input: SpellProverInput) -> (String, NormalizedSpell) {
         })
         .collect();
 
-    let app_contract_proofs = app_contract_proofs
-        .into_iter()
-        .map(|(app, proof_opt)| {
-            let app_contract_proof = to_app_contract_proof(&app, proof_opt);
-            (app, app_contract_proof)
+    let app_contract_proofs = spell
+        .app_public_inputs
+        .iter()
+        .zip(0..)
+        .map(|((app, _), i)| {
+            let app_contract_proof = to_app_contract_proof(app, app_contract_proofs.contains(&i));
+            (app.clone(), app_contract_proof)
         })
         .collect();
 
