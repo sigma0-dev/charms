@@ -51,7 +51,7 @@ impl Transaction {
 pub type Charm = BTreeMap<App, AppState>;
 
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-#[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct UtxoId(pub TxId, pub u32);
 
 impl UtxoId {
@@ -92,6 +92,12 @@ impl UtxoId {
 impl Display for UtxoId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.to_string_internal().fmt(f)
+    }
+}
+
+impl fmt::Debug for UtxoId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "UtxoId({})", self.to_string_internal())
     }
 }
 
@@ -150,7 +156,7 @@ impl<'de> Deserialize<'de> for UtxoId {
 }
 
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-#[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct App {
     pub tag: char,
     pub id: UtxoId,
@@ -160,6 +166,12 @@ pub struct App {
 impl Display for App {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}/{}/{}", self.tag, self.id, self.vk_hash)
+    }
+}
+
+impl fmt::Debug for App {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "App({}/{}/{})", self.tag, self.id, self.vk_hash)
     }
 }
 
@@ -263,7 +275,7 @@ impl<'de> Deserialize<'de> for App {
 pub type AppState = Data;
 
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct TxId(pub [u8; 32]);
 
 impl TxId {
@@ -285,6 +297,12 @@ impl TxId {
 impl Display for TxId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.to_string_internal().fmt(f)
+    }
+}
+
+impl fmt::Debug for TxId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "TxId({})", self.to_string_internal())
     }
 }
 
@@ -343,7 +361,7 @@ impl<'de> Deserialize<'de> for TxId {
 }
 
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Default, Serialize, Deserialize)]
 pub struct VkHash(pub [u8; 32]);
 
 impl Display for VkHash {
@@ -352,7 +370,13 @@ impl Display for VkHash {
     }
 }
 
-#[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+impl fmt::Debug for VkHash {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "VkHash({})", hex::encode(&self.0))
+    }
+}
+
+#[derive(Clone, Default, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Data(Box<[u8]>);
 
 impl Data {
@@ -363,6 +387,18 @@ impl Data {
     pub fn try_into<T: DeserializeOwned>(&self) -> Result<T> {
         ciborium::de::from_reader(self.0.as_ref())
             .map_err(|e| anyhow!("failed to convert from Data: {}", e))
+    }
+}
+
+impl fmt::Debug for Data {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let v = self.try_into::<ciborium::Value>().ok();
+        write!(
+            f,
+            "Data({})",
+            v.map(|v| format!("{:?}", v))
+                .unwrap_or_else(|| hex::encode(&self.0))
+        )
     }
 }
 
@@ -438,6 +474,7 @@ pub fn sum_token_amount<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ciborium::Value;
     use proptest::prelude::*;
 
     proptest! {
@@ -461,6 +498,20 @@ mod tests {
         let tx_id_str = tx_id.to_string();
         let tx_id_str_expected = "0000000000000000000000000000000000000000000000000000000000000001";
         assert_eq!(tx_id_str, tx_id_str_expected);
+    }
+
+    #[test]
+    fn data_dbg() {
+        let v = 42u64;
+        let data = Data::from(v);
+        assert_eq!(format!("{:?}", data), format!("Data({:?})", Value::from(v)));
+
+        let data = Data::empty();
+        assert_eq!(format!("{:?}", data), "Data()");
+
+        let vec1: Vec<u64> = vec![];
+        let data = Data::from(vec1);
+        assert_eq!(format!("{:?}", data), "Data(Array([]))");
     }
 
     #[test]
