@@ -4,7 +4,7 @@
 use anyhow::{anyhow, ensure, Error, Result};
 use ark_std::{
     boxed::Box,
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     format,
     string::{String, ToString},
     vec,
@@ -26,24 +26,6 @@ pub struct Transaction {
     pub refs: BTreeMap<UtxoId, Charm>,
     /// Output charms.
     pub outs: Vec<Charm>,
-}
-
-impl Transaction {
-    pub fn pre_req_txids(&self) -> BTreeSet<TxId> {
-        self.ins
-            .iter()
-            .chain(self.refs.iter())
-            .map(|(utxo_id, _)| utxo_id.0)
-            .collect()
-    }
-
-    pub fn apps(&self) -> BTreeSet<&App> {
-        self.ins
-            .values()
-            .chain(self.outs.iter())
-            .flat_map(|charm| charm.keys())
-            .collect()
-    }
 }
 
 /// Charm is essentially an app-level UTXO that can carry tokens, NFTs, arbitrary app state.

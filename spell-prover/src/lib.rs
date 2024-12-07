@@ -34,7 +34,7 @@ pub struct NormalizedTransaction {
 }
 
 impl NormalizedTransaction {
-    pub fn pre_req_txids(&self) -> BTreeSet<TxId> {
+    pub fn prev_txids(&self) -> BTreeSet<TxId> {
         let Some(ins) = &self.ins else { unreachable!() };
         ins.iter()
             .chain(self.refs.iter())
@@ -57,15 +57,15 @@ pub struct NormalizedSpell {
 impl NormalizedSpell {
     pub fn well_formed(
         &self,
-        pre_req_spell_proofs: &BTreeMap<TxId, (NormalizedSpell, Box<dyn SpellProof>)>,
+        prev_spell_proofs: &BTreeMap<TxId, (NormalizedSpell, Box<dyn SpellProof>)>,
     ) -> bool {
         if self.version != CURRENT_VERSION {
             return false;
         }
-        let created_by_pre_req_spells = |utxo_id: &UtxoId| -> bool {
-            pre_req_spell_proofs
+        let created_by_prev_spells = |utxo_id: &UtxoId| -> bool {
+            prev_spell_proofs
                 .get(&utxo_id.0)
-                .and_then(|(pre_req_spell, _)| pre_req_spell.tx.outs.get(utxo_id.1 as usize))
+                .and_then(|(prev_spell, _)| prev_spell.tx.outs.get(utxo_id.1 as usize))
                 .is_some()
         };
         if self.tx.ins.is_none() {
@@ -84,8 +84,8 @@ impl NormalizedSpell {
         let Some(tx_ins) = &self.tx.ins else {
             unreachable!()
         };
-        if !tx_ins.iter().all(created_by_pre_req_spells)
-            || !self.tx.refs.iter().all(created_by_pre_req_spells)
+        if !tx_ins.iter().all(created_by_prev_spells)
+            || !self.tx.refs.iter().all(created_by_prev_spells)
         {
             return false;
         }
@@ -119,24 +119,24 @@ impl NormalizedSpell {
 
     pub fn is_correct(
         &self,
-        pre_req_spell_proofs: &BTreeMap<TxId, (NormalizedSpell, Box<dyn SpellProof>)>,
+        prev_spell_proofs: &BTreeMap<TxId, (NormalizedSpell, Box<dyn SpellProof>)>,
         app_contract_proofs: &Vec<(App, Box<dyn AppContractProof>)>,
     ) -> bool {
-        if !self.well_formed(pre_req_spell_proofs) {
+        if !self.well_formed(prev_spell_proofs) {
             eprintln!("not well formed");
             return false;
         }
-        let pre_req_txids = self.tx.pre_req_txids();
-        if pre_req_txids.len() != pre_req_spell_proofs.len() {
-            eprintln!("pre_req_txids.len() != pre_req_spell_proofs.len()");
+        let prev_txids = self.tx.prev_txids();
+        if prev_txids.len() != prev_spell_proofs.len() {
+            eprintln!("prev_txids.len() != prev_spell_proofs.len()");
             return false;
         }
-        if !pre_req_txids
+        if !prev_txids
             .iter()
-            .zip(pre_req_spell_proofs)
+            .zip(prev_spell_proofs)
             .all(|(txid0, (txid, (n_spell, proof)))| txid == txid0 && proof.verify(n_spell))
         {
-            eprintln!("pre_req_proofs verification failed");
+            eprintln!("prev_proofs verification failed");
             return false;
         }
 
@@ -145,17 +145,13 @@ impl NormalizedSpell {
             eprintln!("apps.len() != app_contract_proofs.len()");
             return false;
         }
-        let pre_req_spells = prev_spells(pre_req_spell_proofs);
+        let prev_spells = prev_spells(prev_spell_proofs);
         if !apps
             .iter()
             .zip(app_contract_proofs)
             .all(|(app0, (app, proof))| {
                 app == app0
-                    && proof.verify(
-                        app,
-                        &self.to_tx(&pre_req_spells),
-                        &self.app_public_inputs[app],
-                    )
+                    && proof.verify(app, &self.to_tx(&prev_spells), &self.app_public_inputs[app])
             })
         {
             eprintln!("app_contract_proofs verification failed");
