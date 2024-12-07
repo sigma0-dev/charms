@@ -43,7 +43,7 @@ pub enum SpellCommands {
         #[arg(long, value_delimiter = ',')]
         prev_txs: Vec<String>,
 
-        #[arg(long, value_parser)]
+        #[arg(long, value_delimiter = ',')]
         app_bins: Vec<PathBuf>,
     },
 }

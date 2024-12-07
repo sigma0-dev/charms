@@ -11,14 +11,14 @@ pub const CURRENT_VERSION: u32 = V0;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpellProverInput {
     pub self_spell_vk: String,
-    pub pre_req_spell_proofs: Vec<(TxId, (NormalizedSpell, Option<Proof>))>,
+    pub prev_spell_proofs: Vec<(TxId, (NormalizedSpell, Option<Proof>))>,
     pub spell: NormalizedSpell,
-    pub app_contract_proofs: Vec<(App, Option<()>)>, // proofs are provided in input stream data
+    pub app_contract_proofs: Vec<(App, bool)>, // proofs are provided in input stream data
 }
 
 pub type NormalizedCharm = BTreeMap<usize, Data>;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct NormalizedTransaction {
     /// Input UTXO list. **May** theoretically be empty.
     /// **Must** be in the order of the hosting transaction's inputs.
@@ -45,7 +45,7 @@ impl NormalizedTransaction {
 pub type Proof = Box<[u8]>;
 
 /// Can be committed as public input.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct NormalizedSpell {
     pub version: u32,
     pub tx: NormalizedTransaction,
@@ -95,12 +95,12 @@ impl NormalizedSpell {
         self.app_public_inputs.keys().cloned().collect()
     }
 
-    pub fn to_tx(&self, pre_req_spell_proofs: &BTreeMap<TxId, NormalizedSpell>) -> Transaction {
+    pub fn to_tx(&self, prev_spells: &BTreeMap<TxId, NormalizedSpell>) -> Transaction {
         let from_utxo_id = |utxo_id: &UtxoId| -> (UtxoId, Charm) {
-            let pre_req_spell = &pre_req_spell_proofs[&utxo_id.0];
+            let prev_spell = &prev_spells[&utxo_id.0];
             (
                 utxo_id.clone(),
-                pre_req_spell.to_charm(&pre_req_spell.tx.outs[utxo_id.1 as usize]),
+                prev_spell.to_charm(&prev_spell.tx.outs[utxo_id.1 as usize]),
             )
         };
 
@@ -122,10 +122,12 @@ impl NormalizedSpell {
         app_contract_proofs: &Vec<(App, Box<dyn AppContractProof>)>,
     ) -> bool {
         if !self.well_formed(pre_req_spell_proofs) {
+            eprintln!("not well formed");
             return false;
         }
         let pre_req_txids = self.tx.pre_req_txids();
         if pre_req_txids.len() != pre_req_spell_proofs.len() {
+            eprintln!("pre_req_txids.len() != pre_req_spell_proofs.len()");
             return false;
         }
         if !pre_req_txids
@@ -133,11 +135,13 @@ impl NormalizedSpell {
             .zip(pre_req_spell_proofs)
             .all(|(txid0, (txid, (n_spell, proof)))| txid == txid0 && proof.verify(n_spell))
         {
+            eprintln!("pre_req_proofs verification failed");
             return false;
         }
 
         let apps = self.apps();
         if apps.len() != app_contract_proofs.len() {
+            eprintln!("apps.len() != app_contract_proofs.len()");
             return false;
         }
         let pre_req_spells = prev_spells(pre_req_spell_proofs);
@@ -153,6 +157,7 @@ impl NormalizedSpell {
                     )
             })
         {
+            eprintln!("app_contract_proofs verification failed");
             return false;
         }
 
@@ -169,9 +174,9 @@ impl NormalizedSpell {
 }
 
 fn prev_spells(
-    pre_req_spell_proofs: &BTreeMap<TxId, (NormalizedSpell, Box<dyn SpellProof>)>,
+    prev_spell_proofs: &BTreeMap<TxId, (NormalizedSpell, Box<dyn SpellProof>)>,
 ) -> BTreeMap<TxId, NormalizedSpell> {
-    pre_req_spell_proofs
+    prev_spell_proofs
         .iter()
         .map(|(txid, (n_spell, _))| (txid.clone(), n_spell.clone()))
         .collect()

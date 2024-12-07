@@ -1,19 +1,37 @@
 use crate::{
     v0::{V0AppContractProof, V0SpellProof},
-    AppContractProof, SpellProof, SpellProverInput, CURRENT_VERSION,
+    AppContractProof, NormalizedSpell, SpellProof, SpellProverInput, CURRENT_VERSION,
 };
 use charms_data::App;
 
 pub fn main() {
     // Read an input to the program.
+    // let input: SpellProverInput = sp1_zkvm::io::read();
+    let input_vec = sp1_zkvm::io::read_vec();
+
+    dbg!(input_vec.len());
+
+    let input: SpellProverInput = ciborium::from_reader(input_vec.as_slice()).unwrap();
+
+    dbg!(&input);
+
+    let output = run(input);
+
+    eprintln!("about to commit");
+
+    // Commit to the public values of the program.
+    sp1_zkvm::io::commit(&output);
+}
+
+pub fn run(input: SpellProverInput) -> (String, NormalizedSpell) {
     let SpellProverInput {
         self_spell_vk,
         spell,
-        pre_req_spell_proofs,
+        prev_spell_proofs,
         app_contract_proofs,
-    } = sp1_zkvm::io::read();
+    } = input;
 
-    let pre_req_spell_proofs = pre_req_spell_proofs
+    let prev_spell_proofs = prev_spell_proofs
         .into_iter()
         .map(|(txid, (n_spell, proof_data))| {
             let spell_proof = to_spell_proof(n_spell.version, self_spell_vk.clone(), proof_data);
@@ -30,10 +48,11 @@ pub fn main() {
         .collect();
 
     // Check the spell that we're proving is correct.
-    assert!(spell.is_correct(&pre_req_spell_proofs, &app_contract_proofs));
+    assert!(spell.is_correct(&prev_spell_proofs, &app_contract_proofs));
 
-    // Commit to the public values of the program.
-    sp1_zkvm::io::commit(&(&self_spell_vk, &spell));
+    eprintln!("Spell is correct!");
+
+    (self_spell_vk, spell)
 }
 
 /// Get spell VK and proof for the **given version** of spell prover.
@@ -55,12 +74,12 @@ pub fn to_spell_proof(
 }
 
 /// Get app contract VK and proof for the given app.
-fn to_app_contract_proof(app: &App, proof_opt: Option<()>) -> Box<dyn AppContractProof> {
+fn to_app_contract_proof(app: &App, has_proof: bool) -> Box<dyn AppContractProof> {
     // It only makes sense for the **current version** of spell prover, so we don't need to pass
     // version.
-    let app_contract_proof = match proof_opt {
-        None => V0AppContractProof { vk: None },
-        Some(()) => {
+    let app_contract_proof = match has_proof {
+        false => V0AppContractProof { vk: None },
+        true => {
             let vk: [u32; 8] = unsafe {
                 let vk: [u8; 32] = app.vk_hash.0; // app.vk_hash is the VK of the app contract in V0
                 std::mem::transmute(vk)

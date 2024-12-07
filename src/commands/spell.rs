@@ -1,6 +1,6 @@
 use crate::commands::SpellCommands;
 use anyhow::Result;
-use bitcoin::{consensus::encode::deserialize_hex, Transaction};
+use bitcoin::{consensus::encode::deserialize_hex, hashes::Hash, Transaction};
 use charms::{app, spell, spell::Spell, tx};
 use charms_data::{TxId, VkHash};
 use spell_prover::{NormalizedSpell, NormalizedTransaction, V0};
@@ -29,6 +29,12 @@ pub fn spell_prove(command: SpellCommands) -> Result<()> {
     else {
         unreachable!()
     };
+
+    dbg!(&tx);
+    dbg!(&prev_txs);
+    dbg!(&app_bins);
+
+    sp1_sdk::utils::setup_logger();
 
     let spell: Spell = serde_yaml::from_reader(std::io::stdin())?;
 
@@ -62,10 +68,9 @@ pub fn spell_prove(command: SpellCommands) -> Result<()> {
             };
 
             let txid = prev_tx.compute_txid();
-            let txid_bytes: &[u8] = txid.as_ref();
-            let tx_id: TxId = txid_bytes.try_into()?;
+            let txid_bytes: [u8; 32] = txid.to_byte_array();
 
-            Ok((tx_id, (prev_spell, proof)))
+            Ok((TxId(txid_bytes), (prev_spell, proof)))
         })
         .collect::<Result<BTreeMap<_, _>>>()?;
 

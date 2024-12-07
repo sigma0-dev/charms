@@ -44,12 +44,15 @@ impl Prover {
         norm_spell.app_public_inputs.iter().for_each(|(app, x)| {
             let (pk, vk) = pk_vks.get(&app.vk_hash).unwrap();
             let mut app_stdin = SP1Stdin::new();
-            app_stdin.write(&(app, &tx, x, Data::empty())); // TODO write private input instead of empty data
+            let w = Data::empty(); // TODO write private input instead of empty data
+            app_stdin.write(&(app, &tx, x, &w));
             let app_proof = self.client.prove(pk, app_stdin).compressed().run().unwrap();
 
             let SP1Proof::Compressed(compressed_proof) = app_proof.proof else {
                 unreachable!()
             };
+            dbg!(app);
+            eprintln!("app proof generated!");
             spell_stdin.write_proof(*compressed_proof, vk.vk.clone());
         });
     }

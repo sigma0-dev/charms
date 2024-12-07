@@ -170,16 +170,23 @@ pub fn prove(
 
     let prover_input = SpellProverInput {
         self_spell_vk: vk.bytes32(),
-        pre_req_spell_proofs: prev_spell_proofs.into_iter().collect(),
+        prev_spell_proofs: prev_spell_proofs.into_iter().collect(),
         spell: norm_spell.clone(),
         app_contract_proofs: norm_spell
             .app_public_inputs
             .iter()
-            .map(|(app, _)| (app.clone(), Some(())))
+            .map(|(app, _)| (app.clone(), true)) // TODO only pass true if we have a proof
             .collect(),
     };
+    let input_vec: Vec<u8> = {
+        let mut buf = vec![];
+        ciborium::into_writer(&prover_input, &mut buf).unwrap();
+        buf
+    };
 
-    stdin.write(&prover_input);
+    dbg!(input_vec.len());
+
+    stdin.write_vec(input_vec);
     app::Prover::new().prove(app_binaries, &norm_spell, &prev_spells, &mut stdin);
 
     let proof = client.prove(&pk, stdin).groth16().run()?;
@@ -202,11 +209,13 @@ fn prev_spells(
 
 #[cfg(test)]
 mod test {
-    use crate::spell::KeyedCharm;
-    use charms_data::{App, AppState, Charm, Data, Transaction, UtxoId, VkHash, TOKEN};
+    use super::*;
+    use charms_data::*;
+
+    use proptest::prelude::*;
+
     use ciborium::Value;
     use hex;
-    use std::{collections::BTreeMap, str::FromStr};
 
     #[test]
     fn deserialize_keyed_charm() {

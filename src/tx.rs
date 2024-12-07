@@ -1,5 +1,5 @@
 use crate::script::{control_block, data_script, taproot_spend_info};
-use anyhow::{bail, ensure, Error};
+use anyhow::{anyhow, bail, ensure, Error};
 use bitcoin::{
     self,
     absolute::LockTime,
@@ -189,7 +189,10 @@ fn append_witness_data(
 }
 
 pub fn extract_spell(tx: &Transaction) -> anyhow::Result<(NormalizedSpell, Proof), Error> {
-    let script_data = &tx.input[tx.input.len() - 1].witness[1];
+    let script_data = &tx.input[tx.input.len() - 1]
+        .witness
+        .nth(1)
+        .ok_or(anyhow!("no spell data in the last witness"))?;
 
     // Parse script_data into Script
     let script = bitcoin::blockdata::script::Script::from_bytes(&script_data);

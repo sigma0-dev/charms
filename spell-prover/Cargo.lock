@@ -536,7 +536,7 @@ name = "spell-prover"
 version = "0.1.0"
 dependencies = [
  "charms-data",
- "hex",
+ "ciborium",
  "serde",
  "sp1-primitives",
  "sp1-verifier",
