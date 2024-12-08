@@ -4,7 +4,7 @@ use bitcoin::{
     self,
     absolute::LockTime,
     key::Secp256k1,
-    opcodes::all::OP_IF,
+    opcodes::all::{OP_ENDIF, OP_IF},
     script::{Instruction, PushBytes},
     secp256k1::{schnorr, Keypair, Message},
     sighash::{Prevouts, SighashCache},
@@ -189,13 +189,13 @@ fn append_witness_data(
 }
 
 pub fn extract_spell(tx: &Transaction) -> anyhow::Result<(NormalizedSpell, Proof), Error> {
-    let script_data = &tx.input[tx.input.len() - 1]
+    let script_data = tx.input[tx.input.len() - 1]
         .witness
         .nth(1)
         .ok_or(anyhow!("no spell data in the last witness"))?;
 
     // Parse script_data into Script
-    let script = bitcoin::blockdata::script::Script::from_bytes(&script_data);
+    let script = bitcoin::blockdata::script::Script::from_bytes(script_data);
 
     let mut instructions = script.instructions();
 
@@ -207,12 +207,35 @@ pub fn extract_spell(tx: &Transaction) -> anyhow::Result<(NormalizedSpell, Proof
     if push_bytes.as_bytes() != b"spell" {
         bail!("no spell")
     }
-    let Some(Ok(Instruction::PushBytes(push_bytes))) = instructions.next() else {
-        bail!("no spell")
-    };
 
-    let spell_data = push_bytes.as_bytes();
-    let (spell, proof): (NormalizedSpell, Proof) = ciborium::de::from_reader(spell_data)?;
+    let mut spell_data = vec![];
+
+    loop {
+        match instructions.next() {
+            Some(Ok(Instruction::PushBytes(push_bytes))) => {
+                spell_data.extend(push_bytes.as_bytes());
+            }
+            Some(Ok(Instruction::Op(OP_ENDIF))) => {
+                break;
+            }
+            _ => {
+                bail!("no spell")
+            }
+        }
+    }
+
+    let (spell, proof): (NormalizedSpell, Proof) =
+        ciborium::de::from_reader(spell_data.as_slice())?;
+
+    ensure!(
+        &spell.tx.outs.len() <= &tx.output.len(),
+        "spell tx outs mismatch"
+    );
+    ensure!(
+        &spell.tx.ins.is_none(),
+        "spell inherits inputs from the enchanted tx"
+    );
+
     Ok((spell, proof))
 }
 
