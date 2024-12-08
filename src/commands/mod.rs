@@ -37,6 +37,9 @@ pub enum SpellCommands {
     Parse,
     Print,
     Prove {
+        #[arg(long, default_value = "/dev/stdin")]
+        spell: PathBuf,
+
         #[arg(long)]
         tx: String,
 

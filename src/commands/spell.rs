@@ -22,6 +22,7 @@ pub fn spell_print() -> Result<()> {
 
 pub fn spell_prove(command: SpellCommands) -> Result<()> {
     let SpellCommands::Prove {
+        spell,
         tx,
         prev_txs,
         app_bins,
@@ -36,14 +37,15 @@ pub fn spell_prove(command: SpellCommands) -> Result<()> {
 
     sp1_sdk::utils::setup_logger();
 
-    let spell: Spell = serde_yaml::from_reader(std::io::stdin())?;
+    let spell: Spell = serde_yaml::from_slice(&std::fs::read(spell)?)?;
+    dbg!(&spell);
 
     // TODO use tx in verifying the spell: it must be the same as the spell's tx
     // maybe put the hash of (tx's inputs (w/o the one with the spell) and number of outputs)
     // in the committed inputs of the proof
     let tx = deserialize_hex::<Transaction>(&tx)?;
 
-    let norm_spell = spell.normalized()?;
+    let (norm_spell, app_private_inputs) = spell.normalized()?;
 
     let prev_spells = prev_txs
         .iter()
@@ -85,7 +87,7 @@ pub fn spell_prove(command: SpellCommands) -> Result<()> {
         })
         .collect::<Result<_>>()?;
 
-    let (norm_spell, proof) = spell::prove(norm_spell, prev_spells, &binaries)?;
+    let (norm_spell, proof) = spell::prove(norm_spell, prev_spells, &binaries, app_private_inputs)?;
 
     ciborium::into_writer(&(&norm_spell, &proof), std::io::stdout())?;
 

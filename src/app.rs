@@ -1,6 +1,5 @@
-use charms_data::{Data, TxId, VkHash};
+use charms_data::{App, Data, Transaction, VkHash};
 use sp1_sdk::{HashableKey, ProverClient, SP1Proof, SP1Stdin};
-use spell_prover::NormalizedSpell;
 use std::{collections::BTreeMap, mem};
 
 pub struct Prover {
@@ -27,12 +26,11 @@ impl Prover {
     pub fn prove(
         &self,
         app_binaries: &BTreeMap<VkHash, Vec<u8>>,
-        norm_spell: &NormalizedSpell,
-        prev_spells: &BTreeMap<TxId, NormalizedSpell>,
+        tx: Transaction,
+        app_public_inputs: &BTreeMap<App, Data>,
+        app_private_inputs: BTreeMap<App, Data>,
         spell_stdin: &mut SP1Stdin,
-    ) {
-        let tx = norm_spell.to_tx(prev_spells);
-
+    ) -> anyhow::Result<()> {
         let pk_vks = app_binaries
             .iter()
             .map(|(vk_hash, binary)| {
@@ -41,12 +39,15 @@ impl Prover {
             })
             .collect::<BTreeMap<_, _>>();
 
-        norm_spell.app_public_inputs.iter().for_each(|(app, x)| {
-            let (pk, vk) = pk_vks.get(&app.vk_hash).unwrap();
+        for (app, x) in app_public_inputs {
+            let Some((pk, vk)) = pk_vks.get(&app.vk_hash) else {
+                unreachable!()
+            };
             let mut app_stdin = SP1Stdin::new();
-            let w = Data::empty(); // TODO write private input instead of empty data
-            app_stdin.write(&(app, &tx, x, &w));
-            let app_proof = self.client.prove(pk, app_stdin).compressed().run().unwrap();
+            let empty = Data::empty();
+            let w = app_private_inputs.get(app).unwrap_or(&empty);
+            app_stdin.write(&(app, &tx, x, w));
+            let app_proof = self.client.prove(pk, app_stdin).compressed().run()?;
 
             let SP1Proof::Compressed(compressed_proof) = app_proof.proof else {
                 unreachable!()
@@ -54,6 +55,8 @@ impl Prover {
             dbg!(app);
             eprintln!("app proof generated!");
             spell_stdin.write_proof(*compressed_proof, vk.vk.clone());
-        });
+        }
+
+        Ok(())
     }
 }

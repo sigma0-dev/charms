@@ -32,6 +32,9 @@ pub struct Spell {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub public_inputs: Option<BTreeMap<String, Value>>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_inputs: Option<BTreeMap<String, Value>>,
+
     pub ins: Vec<Utxo>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub refs: Option<Vec<Utxo>>,
@@ -48,6 +51,7 @@ impl Spell {
             version: 0,
             apps: BTreeMap::new(),
             public_inputs: None,
+            private_inputs: None,
             ins: vec![],
             refs: None,
             outs: vec![],
@@ -55,7 +59,7 @@ impl Spell {
         }
     }
 
-    pub fn normalized(&self) -> anyhow::Result<NormalizedSpell> {
+    pub fn normalized(&self) -> anyhow::Result<(NormalizedSpell, BTreeMap<App, Data>)> {
         let empty_map = BTreeMap::new();
         let keyed_public_inputs = self.public_inputs.as_ref().unwrap_or(&empty_map);
 
@@ -120,37 +124,17 @@ impl Spell {
             tx: NormalizedTransaction { ins, refs, outs },
             app_public_inputs,
         };
-        Ok(norm_spell)
-    }
-}
 
-impl From<&NormalizedSpell> for Spell {
-    fn from(norm_spell: &NormalizedSpell) -> Self {
-        let apps = norm_spell
-            .app_public_inputs
+        let keyed_private_inputs = self.private_inputs.as_ref().unwrap_or(&empty_map);
+        let app_private_inputs = keyed_private_inputs
             .iter()
-            .zip(0..)
-            .map(|((app, _), i)| (format!("${}", i), app.clone()))
-            .collect();
-        let public_inputs: BTreeMap<String, Value> = norm_spell
-            .app_public_inputs
-            .iter()
-            .zip(0..)
-            .map(|((app, data), i)| (format!("${}", i), data.try_into().unwrap()))
-            .collect();
-        let public_inputs = Some(public_inputs);
+            .map(|(k, v)| {
+                let app = keyed_apps.get(k).ok_or(anyhow!("missing app key"))?;
+                Ok((app.clone(), Data::from(v)))
+            })
+            .collect::<Result<_, Error>>()?;
 
-        let ins = todo!(); // need to have the hosting tx to get utxo_ids of inputs
-
-        Self {
-            version: norm_spell.version,
-            apps,
-            public_inputs,
-            ins,
-            refs: None,
-            outs: vec![],
-            proof: None,
-        }
+        Ok((norm_spell, app_private_inputs))
     }
 }
 
@@ -161,6 +145,7 @@ pub fn prove(
     norm_spell: NormalizedSpell,
     prev_spell_proofs: BTreeMap<TxId, (NormalizedSpell, Option<Proof>)>,
     app_binaries: &BTreeMap<VkHash, Vec<u8>>,
+    app_private_inputs: BTreeMap<App, Data>,
 ) -> anyhow::Result<(NormalizedSpell, Proof)> {
     let client = ProverClient::new();
     let (pk, vk) = client.setup(SPELL_PROVER_BINARY);
@@ -181,14 +166,25 @@ pub fn prove(
     };
     let input_vec: Vec<u8> = {
         let mut buf = vec![];
-        ciborium::into_writer(&prover_input, &mut buf).unwrap();
+        ciborium::into_writer(&prover_input, &mut buf)?;
         buf
     };
 
     dbg!(input_vec.len());
+    dbg!(&prover_input);
 
     stdin.write_vec(input_vec);
-    app::Prover::new().prove(app_binaries, &norm_spell, &prev_spells, &mut stdin);
+
+    let tx = norm_spell.to_tx(&prev_spells);
+    let app_public_inputs = &norm_spell.app_public_inputs;
+
+    app::Prover::new().prove(
+        app_binaries,
+        tx,
+        app_public_inputs,
+        app_private_inputs,
+        &mut stdin,
+    )?;
 
     let proof = client.prove(&pk, stdin).groth16().run()?;
     let proof = proof.bytes().into_boxed_slice();
