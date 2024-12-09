@@ -169,7 +169,6 @@ pub fn prove(
     };
 
     dbg!(input_vec.len());
-    dbg!(&prover_input);
 
     stdin.write_vec(input_vec);
 

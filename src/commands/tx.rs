@@ -8,7 +8,7 @@ use charms::{tx::add_spell, SPELL_VK};
 use spell_checker::{NormalizedSpell, Proof};
 use std::str::FromStr;
 
-fn parse_outpoint(s: &str) -> Result<OutPoint> {
+pub(crate) fn parse_outpoint(s: &str) -> Result<OutPoint> {
     let parts: Vec<&str> = s.split(':').collect();
     if parts.len() != 2 {
         return Err(anyhow!("Invalid UTXO format. Expected txid:vout"));

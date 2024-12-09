@@ -48,6 +48,15 @@ pub enum SpellCommands {
 
         #[arg(long, value_delimiter = ',')]
         app_bins: Vec<PathBuf>,
+
+        #[arg(long)]
+        funding_utxo_id: String,
+        #[arg(long)]
+        funding_utxo_value: u64,
+        #[arg(long)]
+        change_address: String,
+        #[arg(long)]
+        fee_rate: f64,
     },
 }
 
