@@ -17,7 +17,7 @@ fn main() -> Result<()> {
         },
         Commands::Tx { command } => match command {
             TxCommands::AddSpell { .. } => tx::tx_add_spell(command),
-            TxCommands::ExtractSpell { tx } => tx::tx_extract_spell(tx),
+            TxCommands::ShowSpell { tx } => tx::tx_show_spell(tx),
         },
         Commands::App { command } => match command {
             AppCommands::Vk { path } => app::vk(path),

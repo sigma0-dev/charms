@@ -71,12 +71,14 @@ pub fn tx_add_spell(command: TxCommands) -> Result<()> {
     Ok(())
 }
 
-pub fn tx_extract_spell(tx: String) -> Result<()> {
+pub fn tx_show_spell(tx: String) -> Result<()> {
     let tx = deserialize_hex::<Transaction>(&tx)?;
 
-    let spell_and_proof = spell_checker::tx::extract_spell(&tx, SPELL_VK.as_str())?;
-
-    ciborium::into_writer(&spell_and_proof, std::io::stdout())?;
+    if let Some((spell, _)) = spell_checker::tx::extract_spell(&tx, SPELL_VK.as_str()).ok() {
+        println!("{:?}", spell);
+    } else {
+        eprintln!("No spell found in the transaction");
+    }
 
     Ok(())
 }

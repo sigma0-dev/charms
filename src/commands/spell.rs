@@ -6,7 +6,8 @@ use bitcoin::{
     Amount, FeeRate, Transaction,
 };
 use charms::{app, spell, spell::Spell, tx::add_spell, SPELL_VK};
-use charms_data::{TxId, VkHash};
+use charms_data::{TxId, UtxoId, VkHash};
+use spell_checker::NormalizedSpell;
 use std::{collections::BTreeMap, str::FromStr};
 
 pub fn spell_parse() -> Result<()> {
@@ -50,26 +51,7 @@ pub fn spell_prove(command: SpellCommands) -> Result<()> {
     let tx = deserialize_hex::<Transaction>(&tx)?;
 
     let (norm_spell, app_private_inputs) = spell.normalized()?;
-
-    let spell_ins = norm_spell.tx.ins.as_ref().ok_or(anyhow!("no inputs"))?;
-    for i in 0..spell_ins.len() {
-        let utxo_id = &spell_ins[i];
-        let out_point = tx.input[i].previous_output;
-        ensure!(
-            utxo_id.0 == TxId(out_point.txid.to_byte_array()),
-            "input {} txid mismatch: {} != {}",
-            i,
-            utxo_id.0,
-            out_point.txid
-        );
-        ensure!(
-            utxo_id.1 == out_point.vout,
-            "input {} vout mismatch: {} != {}",
-            i,
-            utxo_id.1,
-            out_point.vout
-        );
-    }
+    // extend_spell_to_tx(&mut norm_spell, &tx)?;
 
     let prev_txs = prev_txs
         .iter()
@@ -136,6 +118,49 @@ pub fn spell_prove(command: SpellCommands) -> Result<()> {
 
     // Print JSON array of transaction hexes
     println!("{}", serde_json::to_string(&hex_txs)?);
+
+    Ok(())
+}
+
+fn extend_spell_to_tx(norm_spell: &mut NormalizedSpell, tx: &Transaction) -> Result<()> {
+    let spell_ins = norm_spell.tx.ins.as_ref().ok_or(anyhow!("no inputs"))?;
+
+    ensure!(
+        spell_ins.len() <= tx.input.len(),
+        "spell inputs exceed transaction inputs"
+    );
+    ensure!(
+        norm_spell.tx.outs.len() <= tx.output.len(),
+        "spell outputs exceed transaction outputs"
+    );
+
+    for i in 0..spell_ins.len() {
+        let utxo_id = &spell_ins[i];
+        let out_point = tx.input[i].previous_output;
+        ensure!(
+            utxo_id.0 == TxId(out_point.txid.to_byte_array()),
+            "input {} txid mismatch: {} != {}",
+            i,
+            utxo_id.0,
+            out_point.txid
+        );
+        ensure!(
+            utxo_id.1 == out_point.vout,
+            "input {} vout mismatch: {} != {}",
+            i,
+            utxo_id.1,
+            out_point.vout
+        );
+    }
+
+    for i in spell_ins.len()..tx.input.len() {
+        let out_point = tx.input[i].previous_output;
+        let utxo_id = UtxoId(TxId(out_point.txid.to_byte_array()), out_point.vout);
+        norm_spell.tx.ins.get_or_insert_with(Vec::new).push(utxo_id);
+    }
+    for _ in norm_spell.tx.outs.len()..tx.output.len() {
+        norm_spell.tx.outs.push(Default::default());
+    }
 
     Ok(())
 }

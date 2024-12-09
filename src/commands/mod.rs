@@ -74,7 +74,7 @@ pub enum TxCommands {
         #[arg(long)]
         fee_rate: f64,
     },
-    ExtractSpell {
+    ShowSpell {
         #[arg(long)]
         tx: String,
     },
