@@ -1,4 +1,7 @@
-use crate::script::{control_block, data_script, taproot_spend_info};
+use crate::{
+    script::{control_block, data_script, taproot_spend_info},
+    SPELL_VK,
+};
 use anyhow::{anyhow, bail, ensure, Error};
 use bitcoin::{
     self,
@@ -15,6 +18,9 @@ use bitcoin::{
     Txid, Weight, Witness, XOnlyPublicKey,
 };
 use rand::thread_rng;
+use serde::Serialize;
+use sp1_sdk::SP1PublicValues;
+use sp1_verifier::Groth16Verifier;
 use spell_prover::{NormalizedSpell, Proof};
 
 /// `add_spell` adds `spell` to `tx`:
@@ -236,7 +242,20 @@ pub fn extract_spell(tx: &Transaction) -> anyhow::Result<(NormalizedSpell, Proof
         "spell inherits inputs from the enchanted tx"
     );
 
+    Groth16Verifier::verify(
+        &proof,
+        to_public_values(&(SPELL_VK.as_str(), &spell)).as_slice(),
+        SPELL_VK.as_str(),
+        *sp1_verifier::GROTH16_VK_BYTES,
+    )?;
+
     Ok((spell, proof))
+}
+
+fn to_public_values<T: Serialize>(t: &T) -> SP1PublicValues {
+    let mut pv = SP1PublicValues::new();
+    pv.write(t);
+    pv
 }
 
 #[cfg(test)]

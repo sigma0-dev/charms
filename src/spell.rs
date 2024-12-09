@@ -1,4 +1,4 @@
-use crate::app;
+use crate::{app, SPELL_CHECKER_BINARY};
 use anyhow::{anyhow, ensure, Error};
 use charms_data::{App, Data, TxId, UtxoId, VkHash};
 use ciborium::Value;
@@ -138,9 +138,6 @@ impl Spell {
     }
 }
 
-pub const SPELL_PROVER_BINARY: &[u8] =
-    include_bytes!("../spell-prover/elf/riscv32im-succinct-zkvm-elf");
-
 pub fn prove(
     norm_spell: NormalizedSpell,
     prev_spell_proofs: BTreeMap<TxId, (NormalizedSpell, Option<Proof>)>,
@@ -148,7 +145,7 @@ pub fn prove(
     app_private_inputs: BTreeMap<App, Data>,
 ) -> anyhow::Result<(NormalizedSpell, Proof)> {
     let client = ProverClient::new();
-    let (pk, vk) = client.setup(SPELL_PROVER_BINARY);
+    let (pk, vk) = client.setup(SPELL_CHECKER_BINARY);
     let mut stdin = SP1Stdin::new();
 
     let prev_spells = prev_spells(&prev_spell_proofs);
