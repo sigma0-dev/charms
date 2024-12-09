@@ -4,7 +4,7 @@ use bitcoin::{
     consensus::encode::{deserialize_hex, serialize_hex},
     Amount, FeeRate, OutPoint, Transaction,
 };
-use charms::{tx, tx::add_spell};
+use charms::{tx, tx::add_spell, SPELL_VK};
 use spell_prover::{NormalizedSpell, Proof};
 use std::str::FromStr;
 
@@ -74,7 +74,7 @@ pub fn tx_add_spell(command: TxCommands) -> Result<()> {
 pub fn tx_extract_spell(tx: String) -> Result<()> {
     let tx = deserialize_hex::<Transaction>(&tx)?;
 
-    let spell_and_proof = tx::extract_spell(&tx)?;
+    let spell_and_proof = tx::extract_spell(&tx, SPELL_VK.as_str())?;
 
     ciborium::into_writer(&spell_and_proof, std::io::stdout())?;
 

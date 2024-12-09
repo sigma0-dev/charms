@@ -1,7 +1,4 @@
-use crate::{
-    script::{control_block, data_script, taproot_spend_info},
-    SPELL_VK,
-};
+use crate::script::{control_block, data_script, taproot_spend_info};
 use anyhow::{anyhow, bail, ensure, Error};
 use bitcoin::{
     self,
@@ -194,7 +191,10 @@ fn append_witness_data(
     witness.push(control_block(public_key, script).serialize());
 }
 
-pub fn extract_spell(tx: &Transaction) -> anyhow::Result<(NormalizedSpell, Proof), Error> {
+pub fn extract_spell(
+    tx: &Transaction,
+    spell_vk: &str,
+) -> anyhow::Result<(NormalizedSpell, Proof), Error> {
     let script_data = tx.input[tx.input.len() - 1]
         .witness
         .nth(1)
@@ -244,8 +244,8 @@ pub fn extract_spell(tx: &Transaction) -> anyhow::Result<(NormalizedSpell, Proof
 
     Groth16Verifier::verify(
         &proof,
-        to_public_values(&(SPELL_VK.as_str(), &spell)).as_slice(),
-        SPELL_VK.as_str(),
+        to_public_values(&(spell_vk, &spell)).as_slice(),
+        spell_vk,
         *sp1_verifier::GROTH16_VK_BYTES,
     )?;
 

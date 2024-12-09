@@ -1,7 +1,7 @@
 use crate::commands::SpellCommands;
 use anyhow::Result;
 use bitcoin::{consensus::encode::deserialize_hex, hashes::Hash, Transaction};
-use charms::{app, spell, spell::Spell, tx};
+use charms::{app, spell, spell::Spell, tx, SPELL_VK};
 use charms_data::{TxId, VkHash};
 use spell_prover::{NormalizedSpell, NormalizedTransaction, V0};
 use std::collections::BTreeMap;
@@ -52,7 +52,7 @@ pub fn spell_prove(command: SpellCommands) -> Result<()> {
         .map(|prev_tx| {
             let prev_tx = deserialize_hex::<Transaction>(prev_tx)?;
 
-            let spell_and_proof_opt = tx::extract_spell(&prev_tx).ok();
+            let spell_and_proof_opt = tx::extract_spell(&prev_tx, SPELL_VK.as_str()).ok();
             let (prev_spell, proof) = match spell_and_proof_opt {
                 Some((spell, proof)) => (spell, Some(proof)),
                 None => {
