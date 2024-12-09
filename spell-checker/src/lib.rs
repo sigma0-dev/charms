@@ -1,6 +1,9 @@
 pub mod bin;
+pub mod tx;
 pub mod v0;
 
+use crate::tx::extract_spell;
+use bitcoin::hashes::Hash;
 use charms_data::{App, Charm, Data, Transaction, TxId, UtxoId};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -11,7 +14,7 @@ pub const CURRENT_VERSION: u32 = V0;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpellProverInput {
     pub self_spell_vk: String,
-    pub prev_spell_proofs: Vec<(TxId, (NormalizedSpell, Option<Proof>))>,
+    pub prev_txs: Vec<bitcoin::Transaction>,
     pub spell: NormalizedSpell,
     /// indices of apps in the spell that have contract proofs
     pub app_contract_proofs: BTreeSet<usize>, // proofs are provided in input stream data
@@ -57,16 +60,16 @@ pub struct NormalizedSpell {
 impl NormalizedSpell {
     pub fn well_formed(
         &self,
-        prev_spell_proofs: &BTreeMap<TxId, (NormalizedSpell, Box<dyn SpellProof>)>,
+        prev_spells: &BTreeMap<TxId, (Option<NormalizedSpell>, usize)>,
     ) -> bool {
         if self.version != CURRENT_VERSION {
             return false;
         }
         let created_by_prev_spells = |utxo_id: &UtxoId| -> bool {
-            prev_spell_proofs
+            prev_spells
                 .get(&utxo_id.0)
-                .and_then(|(prev_spell, _)| prev_spell.tx.outs.get(utxo_id.1 as usize))
-                .is_some()
+                .and_then(|(_, num_outs)| Some(utxo_id.1 as usize <= *num_outs))
+                == Some(true)
         };
         if self.tx.ins.is_none() {
             return false;
@@ -96,13 +99,17 @@ impl NormalizedSpell {
         self.app_public_inputs.keys().cloned().collect()
     }
 
-    pub fn to_tx(&self, prev_spells: &BTreeMap<TxId, NormalizedSpell>) -> Transaction {
+    pub fn to_tx(
+        &self,
+        prev_spells: &BTreeMap<TxId, (Option<NormalizedSpell>, usize)>,
+    ) -> Transaction {
         let from_utxo_id = |utxo_id: &UtxoId| -> (UtxoId, Charm) {
-            let prev_spell = &prev_spells[&utxo_id.0];
-            (
-                utxo_id.clone(),
-                prev_spell.to_charm(&prev_spell.tx.outs[utxo_id.1 as usize]),
-            )
+            let (prev_spell_opt, _) = &prev_spells[&utxo_id.0];
+            let charm = prev_spell_opt
+                .as_ref()
+                .map(|prev_spell| prev_spell.to_charm(&prev_spell.tx.outs[utxo_id.1 as usize]))
+                .unwrap_or_default();
+            (utxo_id.clone(), charm)
         };
 
         let from_normalized_charm = |n_charm: &NormalizedCharm| -> Charm { self.to_charm(n_charm) };
@@ -119,24 +126,18 @@ impl NormalizedSpell {
 
     pub fn is_correct(
         &self,
-        prev_spell_proofs: &BTreeMap<TxId, (NormalizedSpell, Box<dyn SpellProof>)>,
+        prev_txs: &Vec<bitcoin::Transaction>,
         app_contract_proofs: &Vec<(App, Box<dyn AppContractProof>)>,
+        spell_vk: &String,
     ) -> bool {
-        if !self.well_formed(prev_spell_proofs) {
+        let prev_spells = prev_spells(prev_txs, spell_vk);
+        if !self.well_formed(&prev_spells) {
             eprintln!("not well formed");
             return false;
         }
         let prev_txids = self.tx.prev_txids();
-        if prev_txids.len() != prev_spell_proofs.len() {
+        if prev_txids.len() != prev_spells.len() {
             eprintln!("prev_txids.len() != prev_spell_proofs.len()");
-            return false;
-        }
-        if !prev_txids
-            .iter()
-            .zip(prev_spell_proofs)
-            .all(|(txid0, (txid, (n_spell, proof)))| txid == txid0 && proof.verify(n_spell))
-        {
-            eprintln!("prev_proofs verification failed");
             return false;
         }
 
@@ -145,7 +146,6 @@ impl NormalizedSpell {
             eprintln!("apps.len() != app_contract_proofs.len()");
             return false;
         }
-        let prev_spells = prev_spells(prev_spell_proofs);
         if !apps
             .iter()
             .zip(app_contract_proofs)
@@ -170,12 +170,21 @@ impl NormalizedSpell {
     }
 }
 
-fn prev_spells(
-    prev_spell_proofs: &BTreeMap<TxId, (NormalizedSpell, Box<dyn SpellProof>)>,
-) -> BTreeMap<TxId, NormalizedSpell> {
-    prev_spell_proofs
+pub fn prev_spells(
+    prev_txs: &Vec<bitcoin::Transaction>,
+    spell_vk: &str,
+) -> BTreeMap<TxId, (Option<NormalizedSpell>, usize)> {
+    prev_txs
         .iter()
-        .map(|(txid, (n_spell, _))| (txid.clone(), n_spell.clone()))
+        .map(|tx| {
+            (
+                TxId(tx.compute_txid().to_byte_array()),
+                (
+                    extract_spell(tx, spell_vk).ok().map(|(spell, _)| spell),
+                    tx.output.len(),
+                ),
+            )
+        })
         .collect()
 }
 

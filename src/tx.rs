@@ -1,11 +1,8 @@
 use crate::script::{control_block, data_script, taproot_spend_info};
-use anyhow::{anyhow, bail, ensure, Error};
 use bitcoin::{
     self,
     absolute::LockTime,
     key::Secp256k1,
-    opcodes::all::{OP_ENDIF, OP_IF},
-    script::{Instruction, PushBytes},
     secp256k1::{schnorr, Keypair, Message},
     sighash::{Prevouts, SighashCache},
     taproot,
@@ -15,10 +12,6 @@ use bitcoin::{
     Txid, Weight, Witness, XOnlyPublicKey,
 };
 use rand::thread_rng;
-use serde::Serialize;
-use sp1_sdk::SP1PublicValues;
-use sp1_verifier::Groth16Verifier;
-use spell_prover::{NormalizedSpell, Proof};
 
 /// `add_spell` adds `spell` to `tx`:
 /// 1. it builds `commit_spell_tx` transaction which creates a *committed spell* Tapscript output
@@ -189,73 +182,6 @@ fn append_witness_data(
     );
     witness.push(script.clone());
     witness.push(control_block(public_key, script).serialize());
-}
-
-pub fn extract_spell(
-    tx: &Transaction,
-    spell_vk: &str,
-) -> anyhow::Result<(NormalizedSpell, Proof), Error> {
-    let script_data = tx.input[tx.input.len() - 1]
-        .witness
-        .nth(1)
-        .ok_or(anyhow!("no spell data in the last witness"))?;
-
-    // Parse script_data into Script
-    let script = bitcoin::blockdata::script::Script::from_bytes(script_data);
-
-    let mut instructions = script.instructions();
-
-    ensure!(instructions.next() == Some(Ok(Instruction::PushBytes(PushBytes::empty()))));
-    ensure!(instructions.next() == Some(Ok(Instruction::Op(OP_IF))));
-    let Some(Ok(Instruction::PushBytes(push_bytes))) = instructions.next() else {
-        bail!("no spell")
-    };
-    if push_bytes.as_bytes() != b"spell" {
-        bail!("no spell")
-    }
-
-    let mut spell_data = vec![];
-
-    loop {
-        match instructions.next() {
-            Some(Ok(Instruction::PushBytes(push_bytes))) => {
-                spell_data.extend(push_bytes.as_bytes());
-            }
-            Some(Ok(Instruction::Op(OP_ENDIF))) => {
-                break;
-            }
-            _ => {
-                bail!("no spell")
-            }
-        }
-    }
-
-    let (spell, proof): (NormalizedSpell, Proof) =
-        ciborium::de::from_reader(spell_data.as_slice())?;
-
-    ensure!(
-        &spell.tx.outs.len() <= &tx.output.len(),
-        "spell tx outs mismatch"
-    );
-    ensure!(
-        &spell.tx.ins.is_none(),
-        "spell inherits inputs from the enchanted tx"
-    );
-
-    Groth16Verifier::verify(
-        &proof,
-        to_public_values(&(spell_vk, &spell)).as_slice(),
-        spell_vk,
-        *sp1_verifier::GROTH16_VK_BYTES,
-    )?;
-
-    Ok((spell, proof))
-}
-
-fn to_public_values<T: Serialize>(t: &T) -> SP1PublicValues {
-    let mut pv = SP1PublicValues::new();
-    pv.write(t);
-    pv
 }
 
 #[cfg(test)]

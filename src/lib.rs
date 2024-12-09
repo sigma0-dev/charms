@@ -7,7 +7,7 @@ pub mod spell;
 pub mod tx;
 
 pub const SPELL_CHECKER_BINARY: &[u8] =
-    include_bytes!("../spell-prover/elf/riscv32im-succinct-zkvm-elf");
+    include_bytes!("../spell-checker/elf/riscv32im-succinct-zkvm-elf");
 
 pub static SPELL_VK: LazyLock<String> = LazyLock::new(|| {
     let client = ProverClient::new();

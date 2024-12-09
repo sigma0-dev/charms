@@ -1,10 +1,10 @@
 use crate::{app, SPELL_CHECKER_BINARY};
 use anyhow::{anyhow, ensure, Error};
-use charms_data::{App, Data, TxId, UtxoId, VkHash};
+use charms_data::{App, Data, UtxoId, VkHash};
 use ciborium::Value;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
-use spell_prover::{
+use spell_checker::{
     NormalizedCharm, NormalizedSpell, NormalizedTransaction, Proof, SpellProverInput,
 };
 use std::collections::{BTreeMap, BTreeSet};
@@ -140,19 +140,20 @@ impl Spell {
 
 pub fn prove(
     norm_spell: NormalizedSpell,
-    prev_spell_proofs: BTreeMap<TxId, (NormalizedSpell, Option<Proof>)>,
     app_binaries: &BTreeMap<VkHash, Vec<u8>>,
     app_private_inputs: BTreeMap<App, Data>,
+    prev_txs: Vec<bitcoin::Transaction>,
+    spell_vk: &str,
 ) -> anyhow::Result<(NormalizedSpell, Proof)> {
     let client = ProverClient::new();
     let (pk, vk) = client.setup(SPELL_CHECKER_BINARY);
     let mut stdin = SP1Stdin::new();
 
-    let prev_spells = prev_spells(&prev_spell_proofs);
+    let prev_spells = spell_checker::prev_spells(&prev_txs, spell_vk);
 
     let prover_input = SpellProverInput {
         self_spell_vk: vk.bytes32(),
-        prev_spell_proofs: prev_spell_proofs.into_iter().collect(),
+        prev_txs,
         spell: norm_spell.clone(),
         app_contract_proofs: norm_spell
             .app_public_inputs
@@ -190,15 +191,6 @@ pub fn prove(
     norm_spell.tx.ins = None;
 
     Ok((norm_spell, proof))
-}
-
-fn prev_spells(
-    prev_spell_proofs: &BTreeMap<TxId, (NormalizedSpell, Option<Proof>)>,
-) -> BTreeMap<TxId, NormalizedSpell> {
-    prev_spell_proofs
-        .iter()
-        .map(|(txid, (spell, _))| (txid.clone(), spell.clone()))
-        .collect()
 }
 
 #[cfg(test)]

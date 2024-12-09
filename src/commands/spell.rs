@@ -1,9 +1,8 @@
 use crate::commands::SpellCommands;
-use anyhow::Result;
+use anyhow::{anyhow, ensure, Result};
 use bitcoin::{consensus::encode::deserialize_hex, hashes::Hash, Transaction};
-use charms::{app, spell, spell::Spell, tx, SPELL_VK};
+use charms::{app, spell, spell::Spell, SPELL_VK};
 use charms_data::{TxId, VkHash};
-use spell_prover::{NormalizedSpell, NormalizedTransaction, V0};
 use std::collections::BTreeMap;
 
 pub fn spell_parse() -> Result<()> {
@@ -40,41 +39,40 @@ pub fn spell_prove(command: SpellCommands) -> Result<()> {
     let spell: Spell = serde_yaml::from_slice(&std::fs::read(spell)?)?;
     dbg!(&spell);
 
-    // TODO use tx in verifying the spell: it must be the same as the spell's tx
-    // maybe put the hash of (tx's inputs (w/o the one with the spell) and number of outputs)
-    // in the committed inputs of the proof
     let tx = deserialize_hex::<Transaction>(&tx)?;
 
     let (norm_spell, app_private_inputs) = spell.normalized()?;
 
-    let prev_spells = prev_txs
+    let spell_ins = norm_spell.tx.ins.as_ref().ok_or(anyhow!("no inputs"))?;
+    for i in 0..spell_ins.len() {
+        let utxo_id = &spell_ins[i];
+        let out_point = tx.input[i].previous_output;
+        ensure!(
+            utxo_id.0 == TxId(out_point.txid.to_byte_array()),
+            "input {} txid mismatch: {} != {}",
+            i,
+            utxo_id.0,
+            out_point.txid
+        );
+        ensure!(
+            utxo_id.1 == out_point.vout,
+            "input {} vout mismatch: {} != {}",
+            i,
+            utxo_id.1,
+            out_point.vout
+        );
+    }
+
+    let prev_txs = prev_txs
         .iter()
         .map(|prev_tx| {
             let prev_tx = deserialize_hex::<Transaction>(prev_tx)?;
 
-            let spell_and_proof_opt = tx::extract_spell(&prev_tx, SPELL_VK.as_str()).ok();
-            let (prev_spell, proof) = match spell_and_proof_opt {
-                Some((spell, proof)) => (spell, Some(proof)),
-                None => {
-                    let spell = NormalizedSpell {
-                        version: V0,
-                        tx: NormalizedTransaction {
-                            ins: None,
-                            refs: Default::default(),
-                            outs: vec![Default::default(); prev_tx.output.len()],
-                        },
-                        app_public_inputs: Default::default(),
-                    };
-                    (spell, None)
-                }
-            };
-
-            let txid = prev_tx.compute_txid();
-            let txid_bytes: [u8; 32] = txid.to_byte_array();
-
-            Ok((TxId(txid_bytes), (prev_spell, proof)))
+            Ok((TxId(prev_tx.compute_txid().to_byte_array()), prev_tx))
         })
-        .collect::<Result<BTreeMap<_, _>>>()?;
+        .collect::<Result<BTreeMap<_, _>>>()?
+        .into_values()
+        .collect();
 
     let app_prover = app::Prover::new();
 
@@ -87,7 +85,13 @@ pub fn spell_prove(command: SpellCommands) -> Result<()> {
         })
         .collect::<Result<_>>()?;
 
-    let (norm_spell, proof) = spell::prove(norm_spell, prev_spells, &binaries, app_private_inputs)?;
+    let (norm_spell, proof) = spell::prove(
+        norm_spell,
+        &binaries,
+        app_private_inputs,
+        prev_txs,
+        &SPELL_VK,
+    )?;
 
     ciborium::into_writer(&(&norm_spell, &proof), std::io::stdout())?;
 
