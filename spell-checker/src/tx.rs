@@ -14,10 +14,12 @@ pub fn extract_spell(
     tx: &bitcoin::Transaction,
     spell_vk: &str,
 ) -> anyhow::Result<(NormalizedSpell, Proof), Error> {
-    let script_data = tx.input[tx.input.len() - 1]
+    let spell_input_index = tx.input.len() - 1;
+
+    let script_data = tx.input[spell_input_index]
         .witness
         .nth(1)
-        .ok_or(anyhow!("no spell data in the last witness"))?;
+        .ok_or(anyhow!("no spell data in the last input's witness"))?;
 
     // Parse script_data into Script
     let script = bitcoin::blockdata::script::Script::from_bytes(script_data);
@@ -27,10 +29,10 @@ pub fn extract_spell(
     ensure!(instructions.next() == Some(Ok(Instruction::PushBytes(PushBytes::empty()))));
     ensure!(instructions.next() == Some(Ok(Instruction::Op(OP_IF))));
     let Some(Ok(Instruction::PushBytes(push_bytes))) = instructions.next() else {
-        bail!("no spell")
+        bail!("no spell data")
     };
     if push_bytes.as_bytes() != b"spell" {
-        bail!("no spell")
+        bail!("no spell marker")
     }
 
     let mut spell_data = vec![];
@@ -44,7 +46,7 @@ pub fn extract_spell(
                 break;
             }
             _ => {
-                bail!("no spell")
+                bail!("unexpected opcode")
             }
         }
     }
@@ -58,13 +60,13 @@ pub fn extract_spell(
     );
     ensure!(
         &spell.tx.ins.is_none(),
-        "spell inherits inputs from the enchanted tx"
+        "spell must inherit inputs from the enchanted tx"
     );
 
-    let tx_ins = tx.input[..tx.input.len() - 1]
+    let tx_ins = tx.input[..spell_input_index] // exclude spell commitment input
         .iter()
-        .map(|txin| {
-            let out_point = txin.previous_output;
+        .map(|tx_in| {
+            let out_point = tx_in.previous_output;
             UtxoId(TxId(out_point.txid.to_byte_array()), out_point.vout)
         })
         .collect();
