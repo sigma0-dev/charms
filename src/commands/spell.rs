@@ -50,8 +50,8 @@ pub fn spell_prove(command: SpellCommands) -> Result<()> {
 
     let tx = deserialize_hex::<Transaction>(&tx)?;
 
-    let (norm_spell, app_private_inputs) = spell.normalized()?;
-    // extend_spell_to_tx(&mut norm_spell, &tx)?;
+    let (mut norm_spell, app_private_inputs) = spell.normalized()?;
+    align_spell_to_tx(&mut norm_spell, &tx)?;
 
     let prev_txs = prev_txs
         .iter()
@@ -122,7 +122,7 @@ pub fn spell_prove(command: SpellCommands) -> Result<()> {
     Ok(())
 }
 
-fn extend_spell_to_tx(norm_spell: &mut NormalizedSpell, tx: &Transaction) -> Result<()> {
+fn align_spell_to_tx(norm_spell: &mut NormalizedSpell, tx: &Transaction) -> Result<()> {
     let spell_ins = norm_spell.tx.ins.as_ref().ok_or(anyhow!("no inputs"))?;
 
     ensure!(
@@ -157,9 +157,6 @@ fn extend_spell_to_tx(norm_spell: &mut NormalizedSpell, tx: &Transaction) -> Res
         let out_point = tx.input[i].previous_output;
         let utxo_id = UtxoId(TxId(out_point.txid.to_byte_array()), out_point.vout);
         norm_spell.tx.ins.get_or_insert_with(Vec::new).push(utxo_id);
-    }
-    for _ in norm_spell.tx.outs.len()..tx.output.len() {
-        norm_spell.tx.outs.push(Default::default());
     }
 
     Ok(())

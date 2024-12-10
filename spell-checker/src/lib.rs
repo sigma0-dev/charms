@@ -37,12 +37,10 @@ pub struct NormalizedTransaction {
 }
 
 impl NormalizedTransaction {
-    pub fn prev_txids(&self) -> BTreeSet<TxId> {
-        let Some(ins) = &self.ins else { unreachable!() };
-        ins.iter()
-            .chain(self.refs.iter())
-            .map(|utxo_id| utxo_id.0)
-            .collect()
+    pub fn prev_txids(&self) -> Option<BTreeSet<&TxId>> {
+        self.ins
+            .as_ref()
+            .map(|ins| ins.iter().map(|utxo_id| &utxo_id.0).collect())
     }
 }
 
@@ -63,33 +61,37 @@ impl NormalizedSpell {
         prev_spells: &BTreeMap<TxId, (Option<NormalizedSpell>, usize)>,
     ) -> bool {
         if self.version != CURRENT_VERSION {
+            eprintln!(
+                "spell version {} is not the current version {}",
+                self.version, CURRENT_VERSION
+            );
             return false;
         }
         let created_by_prev_spells = |utxo_id: &UtxoId| -> bool {
             prev_spells
                 .get(&utxo_id.0)
-                .and_then(|(_, num_outs)| Some(utxo_id.1 as usize <= *num_outs))
+                .and_then(|(_, num_tx_outs)| Some(utxo_id.1 as usize <= *num_tx_outs))
                 == Some(true)
         };
-        if self.tx.ins.is_none() {
-            return false;
-        }
         if !self
             .tx
             .outs
             .iter()
             .all(|n_charm| n_charm.keys().all(|i| i < &self.app_public_inputs.len()))
         {
+            eprintln!("charm app index higher than app_public_inputs.len()");
             return false;
         }
         // check that UTXOs we're spending or referencing in this tx
         // are created by pre-req transactions
         let Some(tx_ins) = &self.tx.ins else {
-            unreachable!()
+            eprintln!("no tx.ins");
+            return false;
         };
         if !tx_ins.iter().all(created_by_prev_spells)
             || !self.tx.refs.iter().all(created_by_prev_spells)
         {
+            eprintln!("input or reference UTXOs are not created by prev transactions");
             return false;
         }
         true
@@ -107,15 +109,21 @@ impl NormalizedSpell {
             let (prev_spell_opt, _) = &prev_spells[&utxo_id.0];
             let charm = prev_spell_opt
                 .as_ref()
-                .map(|prev_spell| prev_spell.to_charm(&prev_spell.tx.outs[utxo_id.1 as usize]))
+                .and_then(|prev_spell| {
+                    prev_spell
+                        .tx
+                        .outs
+                        .get(utxo_id.1 as usize)
+                        .map(|n_charm| prev_spell.charm(n_charm))
+                })
                 .unwrap_or_default();
             (utxo_id.clone(), charm)
         };
 
-        let from_normalized_charm = |n_charm: &NormalizedCharm| -> Charm { self.to_charm(n_charm) };
+        let from_normalized_charm = |n_charm: &NormalizedCharm| -> Charm { self.charm(n_charm) };
 
         let Some(tx_ins) = &self.tx.ins else {
-            unreachable!()
+            unreachable!("self.tx.ins MUST be Some at this point");
         };
         Transaction {
             ins: tx_ins.iter().map(from_utxo_id).collect(),
@@ -135,9 +143,11 @@ impl NormalizedSpell {
             eprintln!("not well formed");
             return false;
         }
-        let prev_txids = self.tx.prev_txids();
-        if prev_txids.len() != prev_spells.len() {
-            eprintln!("prev_txids.len() != prev_spell_proofs.len()");
+        let Some(prev_txids) = self.tx.prev_txids() else {
+            unreachable!("the spell is well formed: tx.ins MUST be Some");
+        };
+        if prev_txids != prev_spells.keys().collect() {
+            eprintln!("spell.tx.prev_txids() != prev_spells.keys()");
             return false;
         }
 
@@ -161,7 +171,7 @@ impl NormalizedSpell {
         true
     }
 
-    fn to_charm(&self, n_charm: &NormalizedCharm) -> Charm {
+    fn charm(&self, n_charm: &NormalizedCharm) -> Charm {
         let apps = self.apps();
         n_charm
             .iter()
@@ -177,10 +187,16 @@ pub fn prev_spells(
     prev_txs
         .iter()
         .map(|tx| {
+            let tx_id = TxId(tx.compute_txid().to_byte_array());
             (
-                TxId(tx.compute_txid().to_byte_array()),
+                tx_id,
                 (
-                    extract_spell(tx, spell_vk).ok().map(|(spell, _)| spell),
+                    extract_spell(tx, spell_vk)
+                        .map_err(|e| {
+                            eprintln!("no correct spell in tx {}: {}", tx_id, e);
+                        })
+                        .ok()
+                        .map(|(spell, _)| spell),
                     tx.output.len(),
                 ),
             )

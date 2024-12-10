@@ -51,8 +51,8 @@ pub fn extract_spell(
         }
     }
 
-    let (spell, proof): (NormalizedSpell, Proof) =
-        ciborium::de::from_reader(spell_data.as_slice())?;
+    let (spell, proof): (NormalizedSpell, Proof) = ciborium::de::from_reader(spell_data.as_slice())
+        .map_err(|e| anyhow!("could not parse spell and proof: {}", e))?;
 
     ensure!(
         &spell.tx.outs.len() <= &tx.output.len(),
@@ -79,7 +79,8 @@ pub fn extract_spell(
         to_sp1_pv(&(spell_vk, &spell)).as_slice(),
         spell_vk,
         *sp1_verifier::GROTH16_VK_BYTES,
-    )?;
+    )
+    .map_err(|e| anyhow!("could not verify spell proof: {}", e))?;
 
     Ok((spell, proof))
 }
