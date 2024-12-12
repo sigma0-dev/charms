@@ -1,5 +1,6 @@
 use charms_data::{
-    nft_state_preserved, token_amounts_balanced, App, Charm, Data, Transaction, UtxoId, NFT, TOKEN,
+    check, nft_state_preserved, sum_token_amount, token_amounts_balanced, App, Data, Transaction,
+    NFT, TOKEN,
 };
 
 pub fn main() {
@@ -13,10 +14,10 @@ pub fn main() {
 pub fn app_contract(app: &App, tx: &Transaction, _x: (), _w: ()) -> bool {
     match app.tag {
         NFT => {
-            assert!(nft_contract_satisfied(app, tx))
+            check!(nft_contract_satisfied(app, tx))
         }
         TOKEN => {
-            assert!(token_contract_satisfied(app, tx))
+            check!(token_contract_satisfied(app, tx))
         }
         _ => unreachable!(),
     }
@@ -24,46 +25,77 @@ pub fn app_contract(app: &App, tx: &Transaction, _x: (), _w: ()) -> bool {
 }
 
 fn nft_contract_satisfied(app: &App, tx: &Transaction) -> bool {
-    assert!(nft_state_preserved(app, tx) || can_mint_nft(app, tx));
+    let token_app = &App {
+        tag: TOKEN,
+        id: app.id.clone(),
+        vk_hash: app.vk_hash.clone(),
+    };
+    check!(nft_state_preserved(app, tx) || can_mint_nft(app, tx) || can_mint_token(&token_app, tx));
     true
 }
 
-fn can_mint_nft(self_app: &App, tx: &Transaction) -> bool {
+fn can_mint_nft(nft_app: &App, tx: &Transaction) -> bool {
     // can only mint an NFT with this contract if spending a UTXO with the same ID.
-    assert!(tx.ins.iter().any(|(utxo_id, _)| utxo_id == &self_app.id));
+    check!(tx.ins.iter().any(|(utxo_id, _)| utxo_id == &nft_app.id));
     // can mint no more than one NFT.
-    assert_eq!(
+    check!(
         tx.outs
             .iter()
-            .filter(|&charm| charm.iter().any(|(app, _)| app.id == self_app.id))
-            .count(),
-        1
+            .filter(|&charm| charm.iter().any(|(app, _)| app.id == nft_app.id))
+            .count()
+            == 1
     );
     true
 }
 
-fn token_contract_satisfied(app: &App, tx: &Transaction) -> bool {
-    assert!(token_amounts_balanced(app, tx) || can_mint_token(app, tx));
+fn token_contract_satisfied(token_app: &App, tx: &Transaction) -> bool {
+    check!(token_amounts_balanced(token_app, tx) || can_mint_token(token_app, tx));
     true
 }
 
-fn can_mint_token(app: &App, tx: &Transaction) -> bool {
-    // see if there's any input with an NFT with app.id == the token's app.id
-    if tx
+fn can_mint_token(token_app: &App, tx: &Transaction) -> bool {
+    let nft_app = App {
+        tag: NFT,
+        id: token_app.id.clone(),
+        vk_hash: token_app.vk_hash.clone(),
+    };
+
+    let Some(incoming_supply): Option<u64> = tx
         .ins
         .iter()
-        .any(|(_, charm)| charm_has_managing_nft(charm, &app.id))
-    {
-        return true;
+        .find_map(|(_, charm)| charm.get(&nft_app).cloned())
+        .and_then(|data| u64::try_from(&data).ok())
+    else {
+        eprintln!("could not determine incoming supply");
+        return false;
+    };
+
+    let Some(outgoing_supply): Option<u64> = tx
+        .outs
+        .iter()
+        .find_map(|charm| charm.get(&nft_app).cloned())
+        .and_then(|data| u64::try_from(&data).ok())
+    else {
+        eprintln!("could not determine outgoing supply");
+        return false;
+    };
+
+    if !(incoming_supply >= outgoing_supply) {
+        eprintln!("incoming supply must be greater than or equal to outgoing supply");
+        return false;
     }
 
-    false
-}
+    let Some(input_token_amount) = sum_token_amount(&token_app, tx.ins.values()).ok() else {
+        eprintln!("could not determine input token amount");
+        return false;
+    };
+    let Some(output_token_amount) = sum_token_amount(&token_app, tx.outs.iter()).ok() else {
+        eprintln!("could not determine output token amount");
+        return false;
+    };
 
-fn charm_has_managing_nft(charm: &Charm, nft_id: &UtxoId) -> bool {
-    charm
-        .iter()
-        .any(|(app, _)| app.tag == NFT && &app.id == nft_id)
+    // can mint no more than what's allowed by the managing NFT state change.
+    output_token_amount - input_token_amount == incoming_supply - outgoing_supply
 }
 
 #[cfg(test)]

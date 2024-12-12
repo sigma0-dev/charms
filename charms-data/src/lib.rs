@@ -18,6 +18,16 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
+#[macro_export]
+macro_rules! check {
+    ($condition:expr) => {
+        if !$condition {
+            eprintln!("condition does not hold: {}", stringify!($condition));
+            return false;
+        }
+    };
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Transaction {
     /// Input UTXOs.
