@@ -1,6 +1,36 @@
+## Pre-requisites
+
+Bitcoin Core v22.0 or later is required:
+
+```sh
+brew install bitcoin
+```
+
+This walkthrough assumes a bitcoin node running with the following configuration (`bitcoin.conf`):
+
+```
+server=1
+testnet4=1
+txindex=1
+addresstype=bech32m
+changetype=bech32m
+```
+
+On macOS, `bitcoin.conf` is usually located at `~/Library/Application Support/Bitcoin/bitcoin.conf`.
+
+You will need to have `bitcoin-cli` aliased as `b`:
+
 ```sh
 alias b=bitcoin-cli
 ```
+
+You will also need to have `jq` installed:
+
+```sh
+brew install jq
+```
+
+## Walkthrough
 
 ```sh
 recipient="$(b getnewaddress)"
@@ -32,9 +62,13 @@ b decoderawtransaction $draft_tx_hex
 
 prev_txs=$(b decoderawtransaction $draft_tx_hex | jq -r '.vin[].txid' | sort | uniq | xargs -I {} bitcoin-cli getrawtransaction {} | paste -sd, -)
 
-RUST_LOG=info charms spell prove --spell=./tmp/toad-with-nft/spell-mint-nft.yml --tx=$draft_tx_hex --prev-txs $prev_txs --app-bins examples/toad-token/elf/riscv32im-succinct-zkvm-elf --funding-utxo-id=$funding_utxo_id --funding-utxo-value=$funding_utxo_value --change-address=$change_address --fee-rate=$fee_rate
+spell_source=./tmp/toad-with-nft/spell-mint-token.yml
+toad_app_bin=./examples/toad-token/elf/riscv32im-succinct-zkvm-elf
+
+RUST_LOG=info charms spell prove --spell=$spell_source --tx=$draft_tx_hex --prev-txs=$prev_txs --app-bins=$toad_app_bin --funding-utxo-id=$funding_utxo_id --funding-utxo-value=$funding_utxo_value --change-address=$change_address --fee-rate=$fee_rate
 
 # sign the resulting transactions
+# copy the output from the previous command into spell_prove_result:
 
 spell_prove_result='["0200000001d0...000","020000000001041...000"]'
 
