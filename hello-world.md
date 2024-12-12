@@ -30,6 +30,34 @@ You will also need to have `jq` installed:
 brew install jq
 ```
 
+## Installation
+
+Install Charms:
+
+```sh
+pushd ./examples/toad-token
+cargo prove build
+popd
+
+pushd ./spell-checker
+cargo prove build
+popd
+
+cargo install --path .
+```
+
+Check that the installation was successful:
+
+```sh
+charms app vk ./examples/toad-token/elf/riscv32im-succinct-zkvm-elf
+```
+
+This will print out the verification key for the Toad Token app, that looks something like:
+
+```
+8e877d70518a5b28f5221e70bd7ff7692a603f3a26d7076a5253e21c304a354f
+```
+
 ## Walkthrough
 
 ```sh
@@ -62,7 +90,7 @@ b decoderawtransaction $draft_tx_hex
 
 prev_txs=$(b decoderawtransaction $draft_tx_hex | jq -r '.vin[].txid' | sort | uniq | xargs -I {} bitcoin-cli getrawtransaction {} | paste -sd, -)
 
-spell_source=./tmp/toad-with-nft/spell-mint-token.yml
+spell_source=./examples/toad-token/spells/mint-token.yml
 toad_app_bin=./examples/toad-token/elf/riscv32im-succinct-zkvm-elf
 
 RUST_LOG=info charms spell prove --spell=$spell_source --tx=$draft_tx_hex --prev-txs=$prev_txs --app-bins=$toad_app_bin --funding-utxo-id=$funding_utxo_id --funding-utxo-value=$funding_utxo_value --change-address=$change_address --fee-rate=$fee_rate

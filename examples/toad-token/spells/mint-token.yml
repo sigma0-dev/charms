@@ -1,0 +1,15 @@
+version: 0
+
+apps:
+  $TOAD_MAN: n/312de6129de1a2a3de9dd22bca0bbb351853e7a5b4acb4b48676816055f08bb1:0/8e877d70518a5b28f5221e70bd7ff7692a603f3a26d7076a5253e21c304a354f
+  $TOAD: t/312de6129de1a2a3de9dd22bca0bbb351853e7a5b4acb4b48676816055f08bb1:0/8e877d70518a5b28f5221e70bd7ff7692a603f3a26d7076a5253e21c304a354f
+
+ins:
+  - utxo_id: 3b2f66f97f8b14e5e59f15bcaffc911a4d7c794fef3ac274c69510da8c73f229:0
+    charm:
+      $TOAD_MAN: 100000
+
+outs:
+  - charm:
+      $TOAD_MAN: 30580
+      $TOAD: 69420

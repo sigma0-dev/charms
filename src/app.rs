@@ -41,7 +41,8 @@ impl Prover {
 
         for (app, x) in app_public_inputs {
             let Some((pk, vk)) = pk_vks.get(&app.vk_hash) else {
-                unreachable!()
+                eprintln!("app binary not present: {:?}", app);
+                continue;
             };
             let mut app_stdin = SP1Stdin::new();
             let empty = Data::empty();
