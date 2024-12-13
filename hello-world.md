@@ -32,6 +32,17 @@ brew install jq
 
 ## Installation
 
+If you're using the v0.1.0 release, you can download the `spell-checker` binary
+from: https://github.com/sigma0-dev/charms/releases/tag/v0.1.0 and place it at
+`./spell-checker/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/spell-checker`. You can verify that it's the
+correct binary by running:
+
+````sh
+sha1sum ./spell-checker/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/spell-checker
+````
+
+It is required to be able to install the `charms` CLI binary.
+
 Install Charms:
 
 ```sh
@@ -39,12 +50,16 @@ pushd ./examples/toad-token
 cargo prove build
 popd
 
-pushd ./spell-checker
-cargo prove build
-popd
-
 cargo install --path .
 ```
+
+It should print out this:
+
+```
+ead39847d01fd2c88af9a152366e78bf1399ad61  ./spell-checker/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/spell-checker
+```
+
+```sh
 
 Check that the installation was successful:
 
