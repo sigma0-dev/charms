@@ -383,6 +383,12 @@ impl Data {
     }
 }
 
+impl AsRef<[u8]> for Data {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 impl fmt::Debug for Data {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let v = self.try_into::<ciborium::Value>().ok();

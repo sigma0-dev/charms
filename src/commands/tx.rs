@@ -4,7 +4,7 @@ use bitcoin::{
     consensus::encode::{deserialize_hex, serialize_hex},
     Amount, FeeRate, OutPoint, Transaction,
 };
-use charms::{tx::add_spell, SPELL_VK};
+use charms::{spell::Spell, tx::add_spell, SPELL_VK};
 use spell_checker::{NormalizedSpell, Proof};
 use std::str::FromStr;
 
@@ -75,7 +75,7 @@ pub fn tx_show_spell(tx: String) -> Result<()> {
     let tx = deserialize_hex::<Transaction>(&tx)?;
 
     if let Some((spell, _)) = spell_checker::tx::extract_spell(&tx, SPELL_VK.as_str()).ok() {
-        println!("{:?}", spell);
+        serde_yaml::to_writer(std::io::stdout(), &Spell::denormalized(&spell))?;
     } else {
         eprintln!("No spell found in the transaction");
     }

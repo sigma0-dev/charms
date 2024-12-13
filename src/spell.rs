@@ -18,7 +18,8 @@ pub type KeyedCharm = BTreeMap<String, Value>;
 pub struct Utxo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub utxo_id: Option<UtxoId>,
-    pub charm: KeyedCharm,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub charm: Option<KeyedCharm>,
 }
 
 /// Defines how spells are represented on the wire,
@@ -39,10 +40,6 @@ pub struct Spell {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub refs: Option<Vec<Utxo>>,
     pub outs: Vec<Utxo>,
-
-    /// folded proof of all validation predicates plus all pre-requisite spells
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub proof: Option<Box<[u8]>>,
 }
 
 impl Spell {
@@ -55,7 +52,6 @@ impl Spell {
             ins: vec![],
             refs: None,
             outs: vec![],
-            proof: None,
         }
     }
 
@@ -100,12 +96,16 @@ impl Spell {
             .collect::<Result<_, _>>()?;
         ensure!(refs.len() == self_refs.len(), "duplicate reference inputs");
 
+        let empty_charm = KeyedCharm::new();
+
         let outs: Vec<NormalizedCharm> = self
             .outs
             .iter()
             .map(|utxo| {
                 let charm = utxo
                     .charm
+                    .as_ref()
+                    .unwrap_or(&empty_charm)
                     .iter()
                     .map(|(k, v)| {
                         let app = keyed_apps.get(k).ok_or(anyhow!("missing app key"))?;
@@ -135,6 +135,89 @@ impl Spell {
             .collect::<Result<_, Error>>()?;
 
         Ok((norm_spell, app_private_inputs))
+    }
+
+    pub fn denormalized(norm_spell: &NormalizedSpell) -> Self {
+        let apps = (0..)
+            .zip(norm_spell.app_public_inputs.keys())
+            .map(|(i, app)| (format!("${:04}", i), app.clone()))
+            .collect();
+
+        let public_inputs = match (0..)
+            .zip(norm_spell.app_public_inputs.values())
+            .filter_map(|(i, data)| match data {
+                data if data.as_ref().is_empty() => None,
+                data => Some((
+                    format!("${:04}", i),
+                    data.try_into()
+                        .ok()
+                        .unwrap_or_else(|| Value::Bytes(data.as_ref().to_vec())),
+                )),
+            })
+            .collect::<BTreeMap<_, _>>()
+        {
+            map if map.is_empty() => None,
+            map => Some(map),
+        };
+
+        let Some(norm_spell_ins) = &norm_spell.tx.ins else {
+            unreachable!("spell must have inputs");
+        };
+        let ins = norm_spell_ins
+            .iter()
+            .map(|utxo_id| Utxo {
+                utxo_id: Some(utxo_id.clone()),
+                charm: None,
+            })
+            .collect();
+
+        let refs = match norm_spell
+            .tx
+            .refs
+            .iter()
+            .map(|utxo_id| Utxo {
+                utxo_id: Some(utxo_id.clone()),
+                charm: None,
+            })
+            .collect::<Vec<_>>()
+        {
+            refs if refs.is_empty() => None,
+            refs => Some(refs),
+        };
+
+        let outs = norm_spell
+            .tx
+            .outs
+            .iter()
+            .map(|charm| Utxo {
+                utxo_id: None,
+                charm: match charm
+                    .iter()
+                    .map(|(i, data)| {
+                        (
+                            format!("${:04}", i),
+                            data.try_into()
+                                .ok()
+                                .unwrap_or_else(|| Value::Bytes(data.as_ref().to_vec())),
+                        )
+                    })
+                    .collect::<KeyedCharm>()
+                {
+                    charm if charm.is_empty() => None,
+                    charm => Some(charm),
+                },
+            })
+            .collect();
+
+        Self {
+            version: norm_spell.version,
+            apps,
+            public_inputs,
+            private_inputs: None,
+            ins,
+            refs,
+            outs,
+        }
     }
 }
 
