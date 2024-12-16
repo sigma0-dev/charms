@@ -1,4 +1,3 @@
-#![no_std]
 #![feature(auto_traits, negative_impls)]
 
 use anyhow::{anyhow, ensure, Error, Result};

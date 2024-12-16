@@ -278,12 +278,8 @@ pub fn prove(
 #[cfg(test)]
 mod test {
     use super::*;
-    use charms_data::*;
-
-    use proptest::prelude::*;
 
     use ciborium::Value;
-    use hex;
 
     #[test]
     fn deserialize_keyed_charm() {

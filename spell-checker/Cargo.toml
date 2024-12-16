@@ -4,19 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = { version = "1.0.0" }
-bitcoin = { version = "0.32.0", features = ["serde"] }
+anyhow = { workspace = true }
+bitcoin = { workspace = true, features = ["serde"] }
 charms-data = { path = "../charms-data" }
-ciborium = { version = "0.2.2" }
-serde = { version = "1.0", features = ["derive"] }
-sp1-primitives = { version = "3.0.0" }
-sp1-verifier = { version = "3.0.0" }
-sp1-zkvm = { version = "3.0.0", features = ["verify"] }
-
-[profile.release]
-lto = "fat"
-opt-level = "s"
-strip = "symbols"
-
-[patch.crates-io]
-secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", tag = "secp256k1-v0.29.1-patch-v1" }
+ciborium = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+sp1-primitives = { workspace = true }
+sp1-verifier = { workspace = true }
+sp1-zkvm = { workspace = true, features = ["verify"] }

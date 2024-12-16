@@ -80,7 +80,7 @@ pub fn spell_prove(command: SpellCommands) -> Result<()> {
         &binaries,
         app_private_inputs,
         prev_txs,
-        &SPELL_VK,
+        SPELL_VK,
     )?;
 
     // ciborium::into_writer(&(&norm_spell, &proof), std::io::stdout())?;

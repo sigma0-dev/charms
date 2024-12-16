@@ -74,7 +74,7 @@ pub fn tx_add_spell(command: TxCommands) -> Result<()> {
 pub fn tx_show_spell(tx: String) -> Result<()> {
     let tx = deserialize_hex::<Transaction>(&tx)?;
 
-    if let Some((spell, _)) = spell_checker::tx::extract_spell(&tx, SPELL_VK.as_str()).ok() {
+    if let Some((spell, _)) = spell_checker::tx::extract_spell(&tx, SPELL_VK).ok() {
         serde_yaml::to_writer(std::io::stdout(), &Spell::denormalized(&spell))?;
     } else {
         eprintln!("No spell found in the transaction");

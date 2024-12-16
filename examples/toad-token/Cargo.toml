@@ -11,3 +11,5 @@ sp1-zkvm = { version = "3.0.0" }
 lto = "fat"
 opt-level = "s"
 strip = "symbols"
+
+[workspace]
