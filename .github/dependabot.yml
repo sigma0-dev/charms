@@ -6,10 +6,7 @@
 version: 2
 updates:
   - package-ecosystem: "cargo"
-    directories: 
+    directories:
       - "/"
-      - "/charms-data"
-      - "/charms-sdk"
-      - "/charms-spell-checker"
     schedule:
       interval: "weekly"
