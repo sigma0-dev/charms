@@ -1,6 +1,6 @@
 [package]
 name = "charms"
-description = "⚡️enchant Bitcoin with your apps"
+description = "⚡️enchant Bitcoin with your spells"
 repository = "https://github.com/sigma0-dev/charms"
 
 version.workspace = true
@@ -9,7 +9,7 @@ edition.workspace = true
 license.workspace = true
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Ivan Mikushin <ivan@sigmazero.dev>"]
 license = "MIT"

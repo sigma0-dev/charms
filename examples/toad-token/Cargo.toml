@@ -1,6 +1,7 @@
 [package]
 name = "toad-token"
-version = "0.1.0"
+description = "A simple token Charms app"
+version = "0.1.1"
 edition = "2021"
 
 [dependencies]

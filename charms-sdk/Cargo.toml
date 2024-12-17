@@ -1,6 +1,6 @@
 [package]
 name = "charms-sdk"
-description = "Charms SDK: tools for building Charms apps"
+description = "Charms SDK: the only dependency needed to build ZK apps on Bitcoin"
 
 version.workspace = true
 edition.workspace = true
