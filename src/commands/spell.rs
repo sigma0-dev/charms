@@ -7,7 +7,7 @@ use bitcoin::{
 };
 use charms::{app, spell, spell::Spell, tx::add_spell, SPELL_VK};
 use charms_data::{TxId, UtxoId, VkHash};
-use spell_checker::NormalizedSpell;
+use charms_spell_checker::NormalizedSpell;
 use std::{collections::BTreeMap, str::FromStr};
 
 pub fn spell_parse() -> Result<()> {

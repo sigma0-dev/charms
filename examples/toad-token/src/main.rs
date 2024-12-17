@@ -1,2 +1,2 @@
 #![no_main]
-sp1_zkvm::entrypoint!(toad_token::main);
+charms_sdk::main!(toad_token::app_contract);

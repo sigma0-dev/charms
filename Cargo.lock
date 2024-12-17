@@ -859,6 +859,7 @@ dependencies = [
  "anyhow",
  "bitcoin",
  "charms-data",
+ "charms-spell-checker",
  "ciborium",
  "clap",
  "hex",
@@ -870,7 +871,6 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "sp1-sdk",
- "spell-checker",
 ]
 
 [[package]]
@@ -885,6 +885,28 @@ dependencies = [
  "proptest",
  "proptest-derive",
  "serde",
+]
+
+[[package]]
+name = "charms-sdk"
+version = "0.1.0"
+dependencies = [
+ "charms-data",
+ "sp1-zkvm",
+]
+
+[[package]]
+name = "charms-spell-checker"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bitcoin",
+ "charms-data",
+ "ciborium",
+ "serde",
+ "sp1-primitives",
+ "sp1-verifier",
+ "sp1-zkvm",
 ]
 
 [[package]]
@@ -5311,20 +5333,6 @@ dependencies = [
  "sha2",
  "sp1-lib",
  "sp1-primitives",
-]
-
-[[package]]
-name = "spell-checker"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bitcoin",
- "charms-data",
- "ciborium",
- "serde",
- "sp1-primitives",
- "sp1-verifier",
- "sp1-zkvm",
 ]
 
 [[package]]

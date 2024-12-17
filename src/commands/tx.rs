@@ -5,7 +5,7 @@ use bitcoin::{
     Amount, FeeRate, OutPoint, Transaction,
 };
 use charms::{spell::Spell, tx::add_spell, SPELL_VK};
-use spell_checker::{NormalizedSpell, Proof};
+use charms_spell_checker::{NormalizedSpell, Proof};
 use std::str::FromStr;
 
 pub(crate) fn parse_outpoint(s: &str) -> Result<OutPoint> {
@@ -74,7 +74,7 @@ pub fn tx_add_spell(command: TxCommands) -> Result<()> {
 pub fn tx_show_spell(tx: String) -> Result<()> {
     let tx = deserialize_hex::<Transaction>(&tx)?;
 
-    if let Some((spell, _)) = spell_checker::tx::extract_spell(&tx, SPELL_VK).ok() {
+    if let Some((spell, _)) = charms_spell_checker::tx::extract_spell(&tx, SPELL_VK).ok() {
         serde_yaml::to_writer(std::io::stdout(), &Spell::denormalized(&spell))?;
     } else {
         eprintln!("No spell found in the transaction");

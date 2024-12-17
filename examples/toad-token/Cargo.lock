@@ -66,6 +66,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "charms-sdk"
+version = "0.1.0"
+dependencies = [
+ "charms-data",
+ "sp1-zkvm",
+]
+
+[[package]]
 name = "ciborium"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -319,8 +327,7 @@ dependencies = [
 name = "toad-token"
 version = "0.1.0"
 dependencies = [
- "charms-data",
- "sp1-zkvm",
+ "charms-sdk",
 ]
 
 [[package]]

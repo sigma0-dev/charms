@@ -1,0 +1,12 @@
+[package]
+name = "charms-sdk"
+description = "Charms SDK: tools for building Charms apps"
+
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+charms-data = { path = "../charms-data" }
+sp1-zkvm = { workspace = true }

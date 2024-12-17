@@ -1,7 +1,11 @@
 [package]
-name = "spell-checker"
-version = "0.1.0"
-edition = "2021"
+name = "charms-spell-checker"
+description = "Recursive validation of spells creating Charms"
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }

@@ -1,7 +1,17 @@
 [package]
 name = "charms"
+description = "⚡️enchant Bitcoin with your apps"
+repository = "https://github.com/sigma0-dev/charms"
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
+authors = ["Ivan Mikushin <ivan@sigmazero.dev>"]
 license = "MIT"
 
 [dependencies]
@@ -17,7 +27,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 sp1-sdk = { workspace = true, features = ["native-gnark"] }
-spell-checker = { path = "./spell-checker" }
+charms-spell-checker = { path = "charms-spell-checker" }
 
 [dev-dependencies]
 proptest = { workspace = true }
@@ -27,7 +37,8 @@ proptest-derive = { workspace = true }
 members = [
     ".",
     "charms-data",
-    "spell-checker",
+    "charms-sdk",
+    "charms-spell-checker",
 ]
 
 resolver = "2"

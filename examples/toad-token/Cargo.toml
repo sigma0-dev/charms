@@ -4,8 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-charms-data = { path = "../../charms-data" }
-sp1-zkvm = { version = "3.0.0" }
+charms-sdk = { path = "../../charms-sdk" }
 
 [profile.release]
 lto = "fat"

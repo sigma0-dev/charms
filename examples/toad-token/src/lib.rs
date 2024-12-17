@@ -1,17 +1,12 @@
-use charms_data::{
+use charms_sdk::data::{
     check, nft_state_preserved, sum_token_amount, token_amounts_balanced, App, Data, Transaction,
     NFT, TOKEN,
 };
 
-pub fn main() {
-    let (app, tx, x, w): (App, Transaction, Data, Data) = sp1_zkvm::io::read();
-    assert_eq!(x, Data::empty());
-    assert_eq!(w, Data::empty());
-    assert!(app_contract(&app, &tx, (), ()));
-    sp1_zkvm::io::commit(&(&app, &tx, &x));
-}
-
-pub fn app_contract(app: &App, tx: &Transaction, _x: (), _w: ()) -> bool {
+pub fn app_contract(app: &App, tx: &Transaction, x: &Data, w: &Data) -> bool {
+    let empty = Data::empty();
+    assert_eq!(x, &empty);
+    assert_eq!(w, &empty);
     match app.tag {
         NFT => {
             check!(nft_contract_satisfied(app, tx))

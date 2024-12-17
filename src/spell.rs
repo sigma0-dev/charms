@@ -1,12 +1,12 @@
 use crate::{app, SPELL_CHECKER_BINARY};
 use anyhow::{anyhow, ensure, Error};
 use charms_data::{App, Data, UtxoId, VkHash};
+use charms_spell_checker::{
+    NormalizedCharm, NormalizedSpell, NormalizedTransaction, Proof, SpellProverInput,
+};
 use ciborium::Value;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
-use spell_checker::{
-    NormalizedCharm, NormalizedSpell, NormalizedTransaction, Proof, SpellProverInput,
-};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Charm as represented in a spell.
@@ -232,7 +232,7 @@ pub fn prove(
     let (pk, vk) = client.setup(SPELL_CHECKER_BINARY);
     let mut stdin = SP1Stdin::new();
 
-    let prev_spells = spell_checker::prev_spells(&prev_txs, spell_vk);
+    let prev_spells = charms_spell_checker::prev_spells(&prev_txs, spell_vk);
 
     let prover_input = SpellProverInput {
         self_spell_vk: vk.bytes32(),
