@@ -36,7 +36,7 @@ fn can_mint_nft(nft_app: &App, tx: &Transaction) -> bool {
     check!(
         tx.outs
             .iter()
-            .filter(|&charm| charm.iter().any(|(app, _)| app.id == nft_app.id))
+            .filter(|&charm| charm.iter().any(|(app, _)| app == nft_app))
             .count()
             == 1
     );
