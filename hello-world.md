@@ -55,8 +55,6 @@ Install Charms:
 cargo test && cargo install --path .
 ```
 
-```sh
-
 Check that the installation was successful:
 
 ```sh
