@@ -32,7 +32,7 @@ brew install jq
 
 ## Installation
 
-If you're using the v0.1.0 release, you can download the `charms-spell-checker` binary
+If you're using the v0.1.2 release, you can download the `charms-spell-checker` binary
 from: https://github.com/sigma0-dev/charms/releases/tag/v0.1.2 and place it at
 `./tmp/charms-spell-checker`. You can verify that it's the
 correct binary by running:
