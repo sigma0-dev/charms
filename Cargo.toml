@@ -9,7 +9,7 @@ edition.workspace = true
 license.workspace = true
 
 [workspace.package]
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Ivan Mikushin <ivan@sigmazero.dev>"]
 license = "MIT"
@@ -17,7 +17,7 @@ license = "MIT"
 [dependencies]
 anyhow = { workspace = true }
 bitcoin = { workspace = true, features = ["rand", "rand-std"] }
-charms-data = { path = "./charms-data" }
+charms-data = { path = "./charms-data", version = "0.1.2" }
 ciborium = { workspace = true }
 clap = { version = "4.5.0", features = ["derive"] }
 hex = { workspace = true }
@@ -27,7 +27,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 sp1-sdk = { workspace = true, features = ["native-gnark"] }
-charms-spell-checker = { path = "charms-spell-checker" }
+charms-spell-checker = { path = "charms-spell-checker", version = "0.1.2" }
 
 [dev-dependencies]
 proptest = { workspace = true }

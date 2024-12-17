@@ -5,9 +5,7 @@ mod script;
 pub mod spell;
 pub mod tx;
 
-pub const SPELL_CHECKER_BINARY: &[u8] = include_bytes!(
-    "../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/charms-spell-checker"
-);
+pub const SPELL_CHECKER_BINARY: &[u8] = include_bytes!(env!("CHARMS_SPELL_CHECKER_BINARY"));
 
 pub const SPELL_VK: &str = "0x00715b1076f4d23a8a37cdb298df9018a1cf72e740fdacea324af87faf7dd162";
 

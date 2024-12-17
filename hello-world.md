@@ -34,17 +34,17 @@ brew install jq
 
 If you're using the v0.1.0 release, you can download the `charms-spell-checker` binary
 from: https://github.com/sigma0-dev/charms/releases/tag/v0.1.0 and place it at
-`./target/elf-compilation/riscv32im-succinct-zkvm-elf/release/charms-spell-checker`. You can verify that it's the
+`./tmp/charms-spell-checker`. You can verify that it's the
 correct binary by running:
 
 ````sh
-sha1sum ./target/elf-compilation/riscv32im-succinct-zkvm-elf/release/charms-spell-checker
+sha1sum ./tmp/charms-spell-checker
 ````
 
 It should print out this:
 
 ```
-ead39847d01fd2c88af9a152366e78bf1399ad61  ./target/elf-compilation/riscv32im-succinct-zkvm-elf/release/charms-spell-checker
+ead39847d01fd2c88af9a152366e78bf1399ad61  ./tmp/charms-spell-checker
 ```
 
 It is required to be able to install the `charms` CLI binary.
@@ -52,6 +52,7 @@ It is required to be able to install the `charms` CLI binary.
 Install Charms:
 
 ```sh
+export CHARMS_SPELL_CHECKER_BINARY="../tmp/charms-spell-checker"
 cargo test && cargo install --path .
 ```
 
