@@ -82,6 +82,13 @@ pub enum TxCommands {
 
 #[derive(Subcommand)]
 pub enum AppCommands {
+    /// Create a new app
+    New {
+        /// Name of the app. Directory <NAME> will be created.
+        name: String,
+    },
+
+    /// Build the app
     Build,
 
     /// Show verification key for an app
@@ -90,5 +97,6 @@ pub enum AppCommands {
         path: Option<String>,
     },
 
+    /// Generate the app proof for a spell.
     Prove,
 }

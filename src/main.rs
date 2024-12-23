@@ -20,10 +20,9 @@ fn main() -> Result<()> {
             TxCommands::ShowSpell { tx } => tx::tx_show_spell(tx),
         },
         Commands::App { command } => match command {
+            AppCommands::New { name } => app::new(&name),
             AppCommands::Vk { path } => app::vk(path),
-            AppCommands::Build => {
-                todo!()
-            }
+            AppCommands::Build => app::build(),
             AppCommands::Prove => {
                 todo!()
             }

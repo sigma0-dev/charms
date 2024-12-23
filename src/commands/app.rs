@@ -2,7 +2,35 @@ use anyhow::{ensure, Result};
 use charms::app;
 use std::fs;
 
+pub fn new(name: &str) -> Result<()> {
+    if !std::process::Command::new("which")
+        .args(&["cargo-generate"])
+        .status()?
+        .success()
+    {
+        std::process::Command::new("cargo")
+            .args(&["install", "cargo-generate"])
+            .status()?;
+    }
+    let status = std::process::Command::new("cargo")
+        .args(&["generate", "sigma0-dev/charms-app", "--name", name])
+        .status()?;
+    ensure!(status.success());
+    Ok(())
+}
+
 pub fn build() -> Result<()> {
+    if !std::process::Command::new("which")
+        .args(&["cargo-prove"])
+        .status()?
+        .success()
+    {
+        std::process::Command::new("bash")
+            .args(&["-c", "curl -L https://sp1.succinct.xyz | bash"])
+            .status()?;
+        std::process::Command::new(format!("{}/.sp1/bin/sp1up", std::env::var("HOME")?))
+            .status()?;
+    }
     let mut child = std::process::Command::new("cargo")
         .args(&["prove", "build"])
         .stdout(std::process::Stdio::piped())
