@@ -16,8 +16,11 @@ license = "MIT"
 
 [dependencies]
 anyhow = { workspace = true }
+axum = { version = "0.8.0-rc.1" }
 bitcoin = { workspace = true, features = ["rand", "rand-std"] }
+bitcoincore-rpc = { version = "0.19.0" }
 charms-data = { path = "./charms-data", version = "0.1.2" }
+charms-spell-checker = { path = "charms-spell-checker", version = "0.1.2" }
 ciborium = { workspace = true }
 clap = { version = "4.5.0", features = ["derive"] }
 hex = { workspace = true }
@@ -27,7 +30,9 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 sp1-sdk = { workspace = true, features = ["native-gnark"] }
-charms-spell-checker = { path = "charms-spell-checker", version = "0.1.2" }
+tokio = { version = "1.0", features = ["full"] }
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [dev-dependencies]
 proptest = { workspace = true }

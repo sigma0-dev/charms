@@ -1,18 +1,22 @@
+use crate::app;
 use anyhow::{ensure, Result};
-use charms::app;
-use std::fs;
+use std::{
+    env, fs, io,
+    process::{Command, Stdio},
+};
 
 pub fn new(name: &str) -> Result<()> {
-    if !std::process::Command::new("which")
+    if !Command::new("which")
         .args(&["cargo-generate"])
+        .stdout(Stdio::null())
         .status()?
         .success()
     {
-        std::process::Command::new("cargo")
+        Command::new("cargo")
             .args(&["install", "cargo-generate"])
             .status()?;
     }
-    let status = std::process::Command::new("cargo")
+    let status = Command::new("cargo")
         .args(&["generate", "sigma0-dev/charms-app", "--name", name])
         .status()?;
     ensure!(status.success());
@@ -20,23 +24,26 @@ pub fn new(name: &str) -> Result<()> {
 }
 
 pub fn build() -> Result<()> {
-    if !std::process::Command::new("which")
+    if !Command::new("which")
         .args(&["cargo-prove"])
+        .stdout(Stdio::null())
         .status()?
         .success()
     {
-        std::process::Command::new("bash")
+        Command::new("bash")
             .args(&["-c", "curl -L https://sp1.succinct.xyz | bash"])
+            .stdout(Stdio::null())
             .status()?;
-        std::process::Command::new(format!("{}/.sp1/bin/sp1up", std::env::var("HOME")?))
+        Command::new(format!("{}/.sp1/bin/sp1up", env::var("HOME")?))
+            .stdout(Stdio::null())
             .status()?;
     }
-    let mut child = std::process::Command::new("cargo")
+    let mut child = Command::new("cargo")
         .args(&["prove", "build"])
-        .stdout(std::process::Stdio::piped())
+        .stdout(Stdio::piped())
         .spawn()?;
     let stdout = child.stdout.take().expect("Failed to open stdout");
-    std::io::copy(&mut std::io::BufReader::new(stdout), &mut std::io::stderr())?;
+    io::copy(&mut io::BufReader::new(stdout), &mut io::stderr())?;
     let status = child.wait()?;
     ensure!(status.success());
     Ok(())

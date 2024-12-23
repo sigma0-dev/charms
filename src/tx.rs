@@ -1,4 +1,7 @@
-use crate::script::{control_block, data_script, taproot_spend_info};
+use crate::{
+    script::{control_block, data_script, taproot_spend_info},
+    SPELL_VK,
+};
 use bitcoin::{
     self,
     absolute::LockTime,
@@ -11,6 +14,7 @@ use bitcoin::{
     Amount, FeeRate, OutPoint, ScriptBuf, TapLeafHash, TapSighashType, Transaction, TxIn, TxOut,
     Txid, Weight, Witness, XOnlyPublicKey,
 };
+use charms_spell_checker::{NormalizedSpell, Proof};
 use rand::thread_rng;
 
 /// `add_spell` adds `spell` to `tx`:
@@ -225,4 +229,8 @@ mod tests {
         let tx_hex = serialize_hex(&tx);
         dbg!(tx_hex);
     }
+}
+
+pub fn spell_and_proof(tx: &Transaction) -> Option<(NormalizedSpell, Proof)> {
+    charms_spell_checker::tx::extract_spell(&tx, SPELL_VK).ok()
 }

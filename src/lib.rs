@@ -1,7 +1,8 @@
 extern crate core;
 
 pub mod app;
-mod script;
+pub mod cli;
+pub mod script;
 pub mod spell;
 pub mod tx;
 

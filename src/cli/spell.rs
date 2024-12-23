@@ -1,11 +1,10 @@
-use crate::commands::SpellCommands;
+use crate::{app, cli::SpellCommands, spell, spell::Spell, tx::add_spell, SPELL_VK};
 use anyhow::{anyhow, ensure, Result};
 use bitcoin::{
     consensus::encode::{deserialize_hex, serialize_hex},
     hashes::Hash,
     Amount, FeeRate, Transaction,
 };
-use charms::{app, spell, spell::Spell, tx::add_spell, SPELL_VK};
 use charms_data::{TxId, UtxoId, VkHash};
 use charms_spell_checker::NormalizedSpell;
 use std::{collections::BTreeMap, str::FromStr};
@@ -90,7 +89,7 @@ pub fn spell_prove(command: SpellCommands) -> Result<()> {
     ciborium::ser::into_writer(&(&norm_spell, &proof), &mut spell_data)?;
 
     // Parse funding UTXO
-    let funding_utxo = crate::commands::tx::parse_outpoint(&funding_utxo_id)?;
+    let funding_utxo = crate::cli::tx::parse_outpoint(&funding_utxo_id)?;
 
     // Parse amount
     let funding_utxo_value = Amount::from_sat(funding_utxo_value);
