@@ -21,6 +21,12 @@ fn main() -> Result<()> {
         },
         Commands::App { command } => match command {
             AppCommands::Vk { path } => app::vk(path),
+            AppCommands::Build => {
+                todo!()
+            }
+            AppCommands::Prove => {
+                todo!()
+            }
         },
     }
 }

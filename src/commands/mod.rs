@@ -82,9 +82,13 @@ pub enum TxCommands {
 
 #[derive(Subcommand)]
 pub enum AppCommands {
-    /// VK stuff
+    Build,
+
+    /// Show verification key for an app
     Vk {
         /// Path to the app's RISC-V binary
-        path: String,
+        path: Option<String>,
     },
+
+    Prove,
 }
