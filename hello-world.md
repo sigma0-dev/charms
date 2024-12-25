@@ -32,27 +32,9 @@ brew install jq
 
 ## Installation
 
-If you're using the v0.1.2 release, you can download the `charms-spell-checker` binary
-from: https://github.com/sigma0-dev/charms/releases/tag/v0.1.2 and place it at
-`./tmp/charms-spell-checker`. You can verify that it's the
-correct binary by running:
-
-````sh
-sha1sum ./tmp/charms-spell-checker
-````
-
-It should print out this:
-
-```
-ead39847d01fd2c88af9a152366e78bf1399ad61  ./tmp/charms-spell-checker
-```
-
-It is required to be able to install the `charms` CLI binary.
-
-Install Charms:
+Install Charms CLI:
 
 ```sh
-export CHARMS_SPELL_CHECKER_BINARY="../tmp/charms-spell-checker"
 cargo test && cargo install --path .
 ```
 
@@ -82,11 +64,11 @@ rawtxhex=$(b createrawtransaction '''[]''' '''[{ "'$recipient'": 0.00010000 }]''
 # or something like this if you want to spend an existing Charm
 # rawtxhex=$(b createrawtransaction '''[ { "txid": "dafd94568e0d8fb0e72c9bb84e54b227c9cad28168611fe3d37f06276125e247", "vout": 0 } ]''' '''[{ "'$recipient'": 0.00010000 }]''')
 
-fee_rate=2
+fee_rate=2 # per vB
 
 draft_tx_hex=$(b -named fundrawtransaction $rawtxhex changePosition=1 fee_rate=$fee_rate | jq -r '.hex')
 
-# now choose a funding output with a few thousand sats (50000 should be more than enough)
+# now choose a funding output with a few thousand sats (10000 should be more than enough)
 b listunspent
 
 # MUST NOT be one of those being spent by $draft_tx_hex (printed out by this)
