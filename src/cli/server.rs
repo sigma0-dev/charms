@@ -1,9 +1,9 @@
-use crate::{spell::Spell, tx::spell_and_proof};
+use crate::{cli::ServerConfig, spell::Spell, tx::spell_and_proof};
 use anyhow::Result;
 use axum::{http::StatusCode, routing::get, Json, Router};
 use bitcoincore_rpc::{Auth, Client, RpcApi};
 use serde::{Deserialize, Serialize};
-use std::{net::IpAddr, path::PathBuf, str::FromStr, sync::LazyLock};
+use std::{str::FromStr, sync::OnceLock};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 // Types
@@ -18,7 +18,17 @@ struct CreateItem {
     description: Option<String>,
 }
 
-pub async fn server(ip_addr: IpAddr, port: u16) -> Result<()> {
+static RPC: OnceLock<Client> = OnceLock::new();
+
+pub async fn server(
+    ServerConfig {
+        ip_addr,
+        port,
+        rpc_url,
+        rpc_user,
+        rpc_password,
+    }: ServerConfig,
+) -> Result<()> {
     // Initialize tracing
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
@@ -26,6 +36,9 @@ pub async fn server(ip_addr: IpAddr, port: u16) -> Result<()> {
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
+
+    RPC.set(bitcoind_client(rpc_url, rpc_user, rpc_password))
+        .expect("Should set RPC client");
 
     // Build router
     let app = Router::new().route("/spells/{txid}", get(get_item));
@@ -46,30 +59,19 @@ async fn get_item(
     get_spell(&txid).map(Json).ok_or(StatusCode::NOT_FOUND)
 }
 
-static RPC: LazyLock<Client> = LazyLock::new(|| {
-    // Configure the RPC connection
-    let rpc_url = "http://127.0.0.1:48332";
-    // let rpc_user = "";
-    // let rpc_password = "";
-
-    // Create RPC client
-    let rpc = Client::new(
-        rpc_url,
-        Auth::CookieFile(PathBuf::from(format!(
-            "{}/Library/Application Support/Bitcoin/testnet4/.cookie",
-            std::env::var("HOME").unwrap()
-        ))),
-        // Auth::UserPass(rpc_user.to_string(), rpc_password.to_string()),
+fn bitcoind_client(rpc_url: String, rpc_user: String, rpc_password: String) -> Client {
+    Client::new(
+        &rpc_url,
+        Auth::UserPass(rpc_user.clone(), rpc_password.clone()),
     )
-    .expect("Should connect to bitcoind");
-
-    rpc
-});
+    .expect("Should connect to bitcoind")
+}
 
 fn get_spell(txid: &str) -> Option<Spell> {
     let txid = bitcoin::Txid::from_str(txid).ok()?;
 
-    match RPC.get_raw_transaction(&txid, None) {
+    let rpc = RPC.get().expect("RPC client should be initialized by now");
+    match rpc.get_raw_transaction(&txid, None) {
         Ok(tx) => match spell_and_proof(&tx) {
             None => None,
             Some((s, _)) => Some(Spell::denormalized(&s)),

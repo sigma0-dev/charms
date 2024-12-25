@@ -3,7 +3,7 @@ pub mod server;
 pub mod spell;
 pub mod tx;
 
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use std::{net::IpAddr, path::PathBuf};
 
 #[derive(Parser)]
@@ -13,16 +13,35 @@ pub struct Cli {
     pub command: Commands,
 }
 
+#[derive(Args)]
+pub struct ServerConfig {
+    /// IP address to listen on, defaults to 0.0.0.0 (all)
+    #[arg(long, default_value = "0.0.0.0")]
+    ip_addr: IpAddr,
+
+    /// Port to listen on, defaults to 17784
+    #[arg(long, default_value = "17784")]
+    port: u16,
+
+    /// bitcoind RPC URL. Set via RPC_URL env var.
+    #[arg(long, env)]
+    rpc_url: String,
+
+    /// bitcoind RPC user. Recommended to set via RPC_USER env var.
+    #[arg(long, env, default_value = "__cookie__")]
+    rpc_user: String,
+
+    /// bitcoind RPC password. Recommended to set via RPC_PASSWORD env var.
+    /// Use the .cookie file in the bitcoind data directory to look up the password:
+    /// the format is `__cookie__:password`
+    #[arg(long, env)]
+    rpc_password: String,
+}
+
 #[derive(Subcommand)]
 pub enum Commands {
     /// Charms API Server
-    Server {
-        #[arg(long, default_value = "127.0.0.1")]
-        ip_addr: IpAddr,
-
-        #[arg(long, default_value = "3000")]
-        port: u16,
-    },
+    Server(#[command(flatten)] ServerConfig),
 
     /// Work with spells
     Spell {
@@ -116,7 +135,7 @@ pub async fn run() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Server { ip_addr, port } => server::server(ip_addr, port).await,
+        Commands::Server(server_config) => server::server(server_config).await,
         Commands::Spell { command } => match command {
             SpellCommands::Parse => spell::spell_parse(),
             SpellCommands::Print => spell::spell_print(),
