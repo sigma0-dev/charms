@@ -30,12 +30,18 @@ You will also need to have `jq` installed:
 brew install jq
 ```
 
+Make sure you have nightly Rust installed:
+
+```sh
+rustup toolchain install nightly
+```
+
 ## Installation
 
 Install Charms CLI:
 
 ```sh
-cargo install charms
+cargo +nightly install charms
 ```
 
 Check that the installation was successful:
