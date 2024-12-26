@@ -1,6 +1,7 @@
-[![crates.io](https://img.shields.io/crates/v/charms)](https://crates.io/crates/charms)
+![Charms](.github/logo-charms.png)
 
-# Charms
+---
+[![crates.io](https://img.shields.io/crates/v/charms)](https://crates.io/crates/charms)
 
 `charms` is a library, CLI tool and web API for programmable tokens and NFTs on top of Bitcoin.
 
@@ -13,6 +14,32 @@ transaction).
 
 Charms are created using _spells_ — special messages added to Bitcoin transactions, manifesting creation and
 **transformation** of charms.
+
+## Get Started
+
+Install Charms CLI:
+
+```sh
+cargo +nightly install charms
+```
+
+Create your first app (your own token on Bitcoin):
+
+```sh
+charms app new my-token
+cd ./my-token
+ls -l
+```
+
+## How To
+
+Concepts and guides: [charms.dev](https://charms.dev)
+
+Charms CLI:
+
+```sh
+charms --help
+```
 
 ## Inspiration
 

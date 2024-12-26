@@ -44,12 +44,12 @@ Install Charms CLI:
 cargo +nightly install charms
 ```
 
-Check that the installation was successful:
+## Create an app
 
 ```sh
-pushd ./examples/toad-token
+charms app new my-token
+cd ./my-token
 charms app vk
-popd
 ```
 
 This will print out the verification key for the Toad Token app, that looks something like:

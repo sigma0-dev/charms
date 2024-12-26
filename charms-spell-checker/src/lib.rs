@@ -24,15 +24,17 @@ pub type NormalizedCharm = BTreeMap<usize, Data>;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct NormalizedTransaction {
-    /// Input UTXO list. **May** theoretically be empty.
-    /// **Must** be in the order of the hosting transaction's inputs.
+    /// (Optional) input UTXO list. Is None when serialized in the transaction: the transaction
+    /// already lists all inputs. **Must** be in the order of the transaction inputs.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ins: Option<Vec<UtxoId>>,
     /// Reference UTXO list. **May** be empty.
     pub refs: BTreeSet<UtxoId>,
+    /// Output charms. **Must** be in the order of the transaction outputs.
     /// When proving correctness of a spell, we can't know the transaction ID yet.
     /// We only know the index of each output charm.
     /// **Must** be in the order of the hosting transaction's outputs.
+    /// **Must not** be larger than the number of outputs in the hosting transaction.
     pub outs: Vec<NormalizedCharm>,
 }
 
