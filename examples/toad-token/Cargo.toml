@@ -1,11 +1,11 @@
 [package]
 name = "toad-token"
 description = "A simple token Charms app"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 
 [dependencies]
-charms-sdk = { path = "../../charms-sdk", version = "0.1.6" }
+charms-sdk = { path = "../../charms-sdk", version = "0.1.7" }
 
 [profile.release]
 lto = "fat"
