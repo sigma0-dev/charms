@@ -32,6 +32,10 @@ pub fn new(name: &str) -> Result<()> {
 pub fn build() -> Result<()> {
     if !Command::new("which")
         .args(&["cargo-prove"])
+        .env(
+            "PATH",
+            format!("{}:{}/.sp1/bin", env::var("PATH")?, env::var("HOME")?),
+        )
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()?
