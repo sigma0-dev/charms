@@ -10,7 +10,7 @@ license.workspace = true
 [dependencies]
 anyhow = { workspace = true }
 bitcoin = { workspace = true, features = ["serde"] }
-charms-data = { path = "../charms-data", version = "0.1.7" }
+charms-data = { path = "../charms-data", version = "0.1.8" }
 ciborium = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 sp1-primitives = { workspace = true }
