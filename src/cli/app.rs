@@ -46,6 +46,10 @@ pub fn build() -> Result<()> {
             .status()?;
     }
     let mut child = Command::new("cargo")
+        .env(
+            "PATH",
+            format!("{}:{}/.sp1/bin", env::var("PATH")?, env::var("HOME")?),
+        )
         .args(&["prove", "build"])
         .stdout(Stdio::piped())
         .spawn()?;
