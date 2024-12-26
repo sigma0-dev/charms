@@ -1,4 +1,4 @@
 #[tokio::main]
-async fn main() {
-    charms::cli::run().await;
+async fn main() -> anyhow::Result<()> {
+    charms::cli::run().await
 }

@@ -1,4 +1,4 @@
-use crate::{app, cli::SpellCommands, spell, spell::Spell, tx::add_spell, SPELL_VK};
+use crate::{app, cli::ProveConfig, spell, spell::Spell, tx::add_spell, SPELL_VK};
 use anyhow::{anyhow, ensure, Result};
 use bitcoin::{
     consensus::encode::{deserialize_hex, serialize_hex},
@@ -16,15 +16,8 @@ pub fn spell_parse() -> Result<()> {
     Ok(())
 }
 
-pub fn spell_print() -> Result<()> {
-    let spell: Spell = ciborium::de::from_reader(std::io::stdin())?;
-    serde_yaml::to_writer(std::io::stdout(), &spell)?;
-
-    Ok(())
-}
-
-pub fn spell_prove(command: SpellCommands) -> Result<()> {
-    let SpellCommands::Prove {
+pub fn spell_prove(
+    ProveConfig {
         spell,
         tx,
         prev_txs,
@@ -33,19 +26,15 @@ pub fn spell_prove(command: SpellCommands) -> Result<()> {
         funding_utxo_value,
         change_address,
         fee_rate,
-    } = command
-    else {
-        unreachable!()
-    };
-
+    }: ProveConfig,
+) -> Result<()> {
     dbg!(&tx);
     dbg!(&prev_txs);
     dbg!(&app_bins);
 
-    sp1_sdk::utils::setup_logger();
+    sp1_sdk::utils::setup_logger(); // TODO configure the logger to print to stderr (vs stdout)
 
     let spell: Spell = serde_yaml::from_slice(&std::fs::read(spell)?)?;
-    dbg!(&spell);
 
     let tx = deserialize_hex::<Transaction>(&tx)?;
 

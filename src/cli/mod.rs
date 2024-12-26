@@ -62,32 +62,34 @@ pub enum Commands {
     },
 }
 
+#[derive(Args)]
+pub struct ProveConfig {
+    #[arg(long, default_value = "/dev/stdin")]
+    spell: PathBuf,
+
+    #[arg(long)]
+    tx: String,
+
+    #[arg(long, value_delimiter = ',')]
+    prev_txs: Vec<String>,
+
+    #[arg(long, value_delimiter = ',')]
+    app_bins: Vec<PathBuf>,
+
+    #[arg(long)]
+    funding_utxo_id: String,
+    #[arg(long)]
+    funding_utxo_value: u64,
+    #[arg(long)]
+    change_address: String,
+    #[arg(long)]
+    fee_rate: f64,
+}
+
 #[derive(Subcommand)]
 pub enum SpellCommands {
     Parse,
-    Print,
-    Prove {
-        #[arg(long, default_value = "/dev/stdin")]
-        spell: PathBuf,
-
-        #[arg(long)]
-        tx: String,
-
-        #[arg(long, value_delimiter = ',')]
-        prev_txs: Vec<String>,
-
-        #[arg(long, value_delimiter = ',')]
-        app_bins: Vec<PathBuf>,
-
-        #[arg(long)]
-        funding_utxo_id: String,
-        #[arg(long)]
-        funding_utxo_value: u64,
-        #[arg(long)]
-        change_address: String,
-        #[arg(long)]
-        fee_rate: f64,
-    },
+    Prove(#[command(flatten)] ProveConfig),
 }
 
 #[derive(Subcommand)]
@@ -124,22 +126,28 @@ pub enum AppCommands {
     /// Show verification key for an app
     Vk {
         /// Path to the app's RISC-V binary
-        path: Option<String>,
+        path: Option<PathBuf>,
     },
 
-    /// Generate the app proof for a spell.
-    Prove,
+    /// Test the app for a spell.
+    Run {
+        /// Path to spell source file (YAML/JSON)
+        #[arg(long, default_value = "/dev/stdin")]
+        spell: PathBuf,
+
+        /// Path to the app's RISC-V binary
+        path: Option<PathBuf>,
+    },
 }
 
-pub async fn run() {
+pub async fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
         Commands::Server(server_config) => server::server(server_config).await,
         Commands::Spell { command } => match command {
             SpellCommands::Parse => spell::spell_parse(),
-            SpellCommands::Print => spell::spell_print(),
-            SpellCommands::Prove { .. } => spell::spell_prove(command),
+            SpellCommands::Prove(prove_config) => spell::spell_prove(prove_config),
         },
         Commands::Tx { command } => match command {
             TxCommands::AddSpell { .. } => tx::tx_add_spell(command),
@@ -149,12 +157,9 @@ pub async fn run() {
             AppCommands::New { name } => app::new(&name),
             AppCommands::Vk { path } => app::vk(path),
             AppCommands::Build => app::build(),
-            AppCommands::Prove => {
-                todo!()
-            }
+            AppCommands::Run { spell, path } => app::run(spell, path),
         },
     }
-    .expect("Error");
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 use crate::{app, SPELL_CHECKER_BINARY};
 use anyhow::{anyhow, ensure, Error};
-use charms_data::{App, Data, UtxoId, VkHash};
+use charms_data::{App, Charm, Data, Transaction, UtxoId, VkHash};
 use charms_spell_checker::{
     NormalizedCharm, NormalizedSpell, NormalizedTransaction, Proof, SpellProverInput,
 };
@@ -53,6 +53,45 @@ impl Spell {
             refs: None,
             outs: vec![],
         }
+    }
+
+    pub fn to_tx(&self) -> anyhow::Result<Transaction> {
+        let ins = self.charms(&self.ins)?;
+        let empty_vec = vec![];
+        let refs = self.charms(self.refs.as_ref().unwrap_or(&empty_vec))?;
+        let outs = self
+            .outs
+            .iter()
+            .map(|utxo| self.charm(utxo))
+            .collect::<Result<_, _>>()?;
+
+        Ok(Transaction { ins, refs, outs })
+    }
+
+    fn charms(&self, utxos: &Vec<Utxo>) -> anyhow::Result<BTreeMap<UtxoId, Charm>> {
+        utxos
+            .iter()
+            .map(|utxo| {
+                let utxo_id = utxo
+                    .utxo_id
+                    .as_ref()
+                    .ok_or(anyhow!("missing input utxo_id"))?;
+                let charm = self.charm(utxo)?;
+                Ok((utxo_id.clone(), charm))
+            })
+            .collect::<Result<_, _>>()
+    }
+
+    fn charm(&self, utxo: &Utxo) -> anyhow::Result<Charm> {
+        utxo.charm
+            .as_ref()
+            .ok_or(anyhow!("missing input charm"))?
+            .iter()
+            .map(|(k, v)| {
+                let app = self.apps.get(k).ok_or(anyhow!("missing app {}", k))?;
+                Ok((app.clone(), Data::from(v)))
+            })
+            .collect::<Result<Charm, _>>()
     }
 
     pub fn normalized(&self) -> anyhow::Result<(NormalizedSpell, BTreeMap<App, Data>)> {
