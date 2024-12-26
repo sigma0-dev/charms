@@ -35,17 +35,15 @@ brew install jq
 Install Charms CLI:
 
 ```sh
-cargo test && cargo install --path .
+cargo install charms
 ```
 
 Check that the installation was successful:
 
 ```sh
 pushd ./examples/toad-token
-cargo prove build
+charms app vk
 popd
-
-charms app vk ./examples/toad-token/elf/riscv32im-succinct-zkvm-elf
 ```
 
 This will print out the verification key for the Toad Token app, that looks something like:
