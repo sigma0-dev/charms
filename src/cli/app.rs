@@ -20,7 +20,6 @@ pub fn new(name: &str) -> Result<()> {
         Command::new("cargo")
             .args(&["install", "cargo-generate"])
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
             .status()?;
     }
     let status = Command::new("cargo")
@@ -41,11 +40,9 @@ pub fn build() -> Result<()> {
         Command::new("bash")
             .args(&["-c", "curl -L https://sp1.succinct.xyz | bash"])
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
             .status()?;
         Command::new(format!("{}/.sp1/bin/sp1up", env::var("HOME")?))
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
             .status()?;
     }
     let mut child = Command::new("cargo")
