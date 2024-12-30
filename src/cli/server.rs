@@ -1,7 +1,7 @@
 use crate::{cli::ServerConfig, spell::Spell, tx::spell_and_proof};
 use anyhow::Result;
 use axum::{http::StatusCode, routing::get, Json, Router};
-use bitcoincore_rpc::{Auth, Client, RpcApi};
+use bitcoincore_rpc::{jsonrpc::Error::Rpc, Auth, Client, RpcApi};
 use serde::{Deserialize, Serialize};
 use std::{str::FromStr, sync::OnceLock};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -76,9 +76,14 @@ fn get_spell(txid: &str) -> Result<Spell, StatusCode> {
             None => Err(StatusCode::NOT_FOUND),
             Some((s, _)) => Ok(Spell::denormalized(&s)),
         },
-        Err(e) => {
-            eprintln!("Error fetching transaction: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
+        Err(e) => match e {
+            bitcoincore_rpc::Error::JsonRpc(Rpc(rpc_error)) if rpc_error.code == -5 => {
+                Err(StatusCode::NOT_FOUND)
+            }
+            _ => {
+                eprintln!("Error: {:?}", e);
+                Err(StatusCode::INTERNAL_SERVER_ERROR)
+            }
+        },
     }
 }
