@@ -56,7 +56,7 @@ pub async fn server(
 async fn get_item(
     axum::extract::Path(txid): axum::extract::Path<String>,
 ) -> Result<Json<Spell>, StatusCode> {
-    get_spell(&txid).map(Json).ok_or(StatusCode::NOT_FOUND)
+    get_spell(&txid).map(Json)
 }
 
 fn bitcoind_client(rpc_url: String, rpc_user: String, rpc_password: String) -> Client {
@@ -64,21 +64,21 @@ fn bitcoind_client(rpc_url: String, rpc_user: String, rpc_password: String) -> C
         &rpc_url,
         Auth::UserPass(rpc_user.clone(), rpc_password.clone()),
     )
-    .expect("Should connect to bitcoind")
+    .expect("Should create RPC client")
 }
 
-fn get_spell(txid: &str) -> Option<Spell> {
-    let txid = bitcoin::Txid::from_str(txid).ok()?;
+fn get_spell(txid: &str) -> Result<Spell, StatusCode> {
+    let txid = bitcoin::Txid::from_str(txid).map_err(|_| StatusCode::NOT_FOUND)?;
 
     let rpc = RPC.get().expect("RPC client should be initialized by now");
     match rpc.get_raw_transaction(&txid, None) {
         Ok(tx) => match spell_and_proof(&tx) {
-            None => None,
-            Some((s, _)) => Some(Spell::denormalized(&s)),
+            None => Err(StatusCode::NOT_FOUND),
+            Some((s, _)) => Ok(Spell::denormalized(&s)),
         },
         Err(e) => {
             eprintln!("Error fetching transaction: {}", e);
-            None
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
 }
