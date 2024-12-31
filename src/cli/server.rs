@@ -68,12 +68,12 @@ fn bitcoind_client(rpc_url: String, rpc_user: String, rpc_password: String) -> C
 }
 
 fn get_spell(txid: &str) -> Result<Spell, StatusCode> {
-    let txid = bitcoin::Txid::from_str(txid).map_err(|_| StatusCode::NOT_FOUND)?;
+    let txid = bitcoin::Txid::from_str(txid).map_err(|_| StatusCode::IM_A_TEAPOT)?;
 
     let rpc = RPC.get().expect("RPC client should be initialized by now");
     match rpc.get_raw_transaction(&txid, None) {
         Ok(tx) => match spell_and_proof(&tx) {
-            None => Err(StatusCode::NOT_FOUND),
+            None => Err(StatusCode::IM_A_TEAPOT),
             Some((s, _)) => Ok(Spell::denormalized(&s)),
         },
         Err(e) => match e {
