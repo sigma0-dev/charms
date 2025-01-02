@@ -1,21 +1,16 @@
 use crate::{cli::ServerConfig, spell::Spell, tx::spell_and_proof};
 use anyhow::Result;
-use axum::{http::StatusCode, routing::get, Json, Router};
+use axum::{extract::Path, http::StatusCode, routing::MethodRouter, Json, Router};
+use bitcoin::{consensus::encode::deserialize_hex, Transaction};
 use bitcoincore_rpc::{jsonrpc::Error::Rpc, Auth, Client, RpcApi};
 use serde::{Deserialize, Serialize};
 use std::{str::FromStr, sync::OnceLock};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 // Types
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct Item {
-    name: String,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
-struct CreateItem {
-    name: String,
-    description: Option<String>,
+struct DecodeSpell {
+    tx_hex: String,
 }
 
 static RPC: OnceLock<Client> = OnceLock::new();
@@ -41,7 +36,12 @@ pub async fn server(
         .expect("Should set RPC client");
 
     // Build router
-    let app = Router::new().route("/spells/{txid}", get(get_item));
+    let app = Router::new().route(
+        "/spells/{txid}",
+        MethodRouter::new()
+            .get(get_spell_handler)
+            .put(put_spell_handler),
+    );
 
     // Run server
     let addr = format!("{}:{}", ip_addr, port);
@@ -53,10 +53,15 @@ pub async fn server(
 }
 
 // Handlers
-async fn get_item(
-    axum::extract::Path(txid): axum::extract::Path<String>,
-) -> Result<Json<Spell>, StatusCode> {
+async fn get_spell_handler(Path(txid): Path<String>) -> Result<Json<Spell>, StatusCode> {
     get_spell(&txid).map(Json)
+}
+
+async fn put_spell_handler(
+    Path(txid): Path<String>,
+    Json(payload): Json<DecodeSpell>,
+) -> Result<Json<Spell>, StatusCode> {
+    decode_spell(&txid, &payload).map(Json)
 }
 
 fn bitcoind_client(rpc_url: String, rpc_user: String, rpc_password: String) -> Client {
@@ -68,14 +73,11 @@ fn bitcoind_client(rpc_url: String, rpc_user: String, rpc_password: String) -> C
 }
 
 fn get_spell(txid: &str) -> Result<Spell, StatusCode> {
-    let txid = bitcoin::Txid::from_str(txid).map_err(|_| StatusCode::IM_A_TEAPOT)?;
+    let txid = bitcoin::Txid::from_str(txid).map_err(|_| StatusCode::BAD_REQUEST)?;
 
     let rpc = RPC.get().expect("RPC client should be initialized by now");
     match rpc.get_raw_transaction(&txid, None) {
-        Ok(tx) => match spell_and_proof(&tx) {
-            None => Err(StatusCode::IM_A_TEAPOT),
-            Some((s, _)) => Ok(Spell::denormalized(&s)),
-        },
+        Ok(tx) => extract_spell(&tx),
         Err(e) => match e {
             bitcoincore_rpc::Error::JsonRpc(Rpc(rpc_error)) if rpc_error.code == -5 => {
                 Err(StatusCode::NOT_FOUND)
@@ -85,5 +87,21 @@ fn get_spell(txid: &str) -> Result<Spell, StatusCode> {
                 Err(StatusCode::INTERNAL_SERVER_ERROR)
             }
         },
+    }
+}
+
+fn decode_spell(txid: &str, request: &DecodeSpell) -> Result<Spell, StatusCode> {
+    let txid = bitcoin::Txid::from_str(txid).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let tx: Transaction = deserialize_hex(&request.tx_hex).map_err(|_| StatusCode::BAD_REQUEST)?;
+    if tx.compute_txid() != txid {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    extract_spell(&tx)
+}
+
+fn extract_spell(tx: &Transaction) -> Result<Spell, StatusCode> {
+    match spell_and_proof(&tx) {
+        None => Err(StatusCode::NO_CONTENT),
+        Some((spell, _)) => Ok(Spell::denormalized(&spell)),
     }
 }
