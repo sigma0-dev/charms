@@ -179,7 +179,7 @@ impl Spell {
     pub fn denormalized(norm_spell: &NormalizedSpell) -> Self {
         let apps = (0..)
             .zip(norm_spell.app_public_inputs.keys())
-            .map(|(i, app)| (format!("${:04}", i), app.clone()))
+            .map(|(i, app)| (str_index(&i), app.clone()))
             .collect();
 
         let public_inputs = match (0..)
@@ -187,7 +187,7 @@ impl Spell {
             .filter_map(|(i, data)| match data {
                 data if data.as_ref().is_empty() => None,
                 data => Some((
-                    format!("${:04}", i),
+                    str_index(&i),
                     data.try_into()
                         .ok()
                         .unwrap_or_else(|| Value::Bytes(data.as_ref().to_vec())),
@@ -234,7 +234,7 @@ impl Spell {
                     .iter()
                     .map(|(i, data)| {
                         (
-                            format!("${:04}", i),
+                            str_index(i),
                             data.try_into()
                                 .ok()
                                 .unwrap_or_else(|| Value::Bytes(data.as_ref().to_vec())),
@@ -258,6 +258,10 @@ impl Spell {
             outs,
         }
     }
+}
+
+fn str_index(i: &usize) -> String {
+    format!("${:04}", i)
 }
 
 pub fn prove(
