@@ -1,5 +1,3 @@
-extern crate core;
-
 pub mod app;
 pub mod cli;
 pub mod script;
