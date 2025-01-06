@@ -1,5 +1,6 @@
-/target
+.DS_Store
 /.idea
-/elf/
-/tmp/
-
+/.run
+/elf
+/target
+/tmp
