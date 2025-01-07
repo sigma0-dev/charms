@@ -16,7 +16,6 @@ hex = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
-postcard = { workspace = true, features = ["use-std"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 test-strategy = { workspace = true }

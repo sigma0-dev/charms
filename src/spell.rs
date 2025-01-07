@@ -1,5 +1,6 @@
 use crate::{app, SPELL_CHECKER_BINARY};
 use anyhow::{anyhow, ensure, Error};
+use bitcoin::{address::NetworkUnchecked, Address};
 use charms_data::{util, App, Charms, Data, Transaction, UtxoId, B32};
 use charms_spell_checker::{
     NormalizedCharms, NormalizedSpell, NormalizedTransaction, Proof, SpellProverInput,
@@ -15,9 +16,19 @@ pub type KeyedCharms = BTreeMap<String, Value>;
 
 /// UTXO as represented in a spell.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Utxo {
+pub struct Input {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub utxo_id: Option<UtxoId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub charms: Option<KeyedCharms>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Output {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub address: Option<Address<NetworkUnchecked>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sats: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub charms: Option<KeyedCharms>,
 }
@@ -36,10 +47,10 @@ pub struct Spell {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub private_inputs: Option<BTreeMap<String, Value>>,
 
-    pub ins: Vec<Utxo>,
+    pub ins: Vec<Input>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub refs: Option<Vec<Utxo>>,
-    pub outs: Vec<Utxo>,
+    pub refs: Option<Vec<Input>>,
+    pub outs: Vec<Output>,
 }
 
 impl Spell {
@@ -56,36 +67,36 @@ impl Spell {
     }
 
     pub fn to_tx(&self) -> anyhow::Result<Transaction> {
-        let ins = self.strands(&self.ins)?;
+        let ins = self.strings_of_charms(&self.ins)?;
         let empty_vec = vec![];
-        let refs = self.strands(self.refs.as_ref().unwrap_or(&empty_vec))?;
+        let refs = self.strings_of_charms(self.refs.as_ref().unwrap_or(&empty_vec))?;
         let outs = self
             .outs
             .iter()
-            .map(|utxo| self.charms(utxo))
+            .map(|output| self.charms(&output.charms))
             .collect::<Result<_, _>>()?;
 
         Ok(Transaction { ins, refs, outs })
     }
 
-    fn strands(&self, utxos: &Vec<Utxo>) -> anyhow::Result<BTreeMap<UtxoId, Charms>> {
-        utxos
+    fn strings_of_charms(&self, inputs: &Vec<Input>) -> anyhow::Result<BTreeMap<UtxoId, Charms>> {
+        inputs
             .iter()
-            .map(|utxo| {
-                let utxo_id = utxo
+            .map(|input| {
+                let utxo_id = input
                     .utxo_id
                     .as_ref()
                     .ok_or(anyhow!("missing input utxo_id"))?;
-                let strand = self.charms(utxo)?;
-                Ok((utxo_id.clone(), strand))
+                let charms = self.charms(&input.charms)?;
+                Ok((utxo_id.clone(), charms))
             })
             .collect::<Result<_, _>>()
     }
 
-    fn charms(&self, utxo: &Utxo) -> anyhow::Result<Charms> {
-        utxo.charms
+    fn charms(&self, charms_opt: &Option<KeyedCharms>) -> anyhow::Result<Charms> {
+        charms_opt
             .as_ref()
-            .ok_or(anyhow!("missing input charm"))?
+            .ok_or(anyhow!("missing charms field"))?
             .iter()
             .map(|(k, v)| {
                 let app = self.apps.get(k).ok_or(anyhow!("missing app {}", k))?;
@@ -103,18 +114,7 @@ impl Spell {
         let app_to_index: BTreeMap<App, usize> = apps.iter().cloned().zip(0..).collect();
         ensure!(apps.len() == keyed_apps.len(), "duplicate apps");
 
-        let app_public_inputs: BTreeMap<App, Data> = keyed_apps
-            .iter()
-            .map(|(k, app)| {
-                (
-                    app.clone(),
-                    keyed_public_inputs
-                        .get(k)
-                        .map(|v| Data::from(v))
-                        .unwrap_or_default(),
-                )
-            })
-            .collect();
+        let app_public_inputs: BTreeMap<App, Data> = app_inputs(keyed_apps, keyed_public_inputs);
 
         let ins: Vec<UtxoId> = self
             .ins
@@ -165,13 +165,7 @@ impl Spell {
         };
 
         let keyed_private_inputs = self.private_inputs.as_ref().unwrap_or(&empty_map);
-        let app_private_inputs = keyed_private_inputs
-            .iter()
-            .map(|(k, v)| {
-                let app = keyed_apps.get(k).ok_or(anyhow!("missing app key"))?;
-                Ok((app.clone(), Data::from(v)))
-            })
-            .collect::<Result<_, Error>>()?;
+        let app_private_inputs = app_inputs(keyed_apps, keyed_private_inputs);
 
         Ok((norm_spell, app_private_inputs))
     }
@@ -202,7 +196,7 @@ impl Spell {
         };
         let ins = norm_spell_ins
             .iter()
-            .map(|utxo_id| Utxo {
+            .map(|utxo_id| Input {
                 utxo_id: Some(utxo_id.clone()),
                 charms: None,
             })
@@ -212,7 +206,7 @@ impl Spell {
             .tx
             .refs
             .iter()
-            .map(|utxo_id| Utxo {
+            .map(|utxo_id| Input {
                 utxo_id: Some(utxo_id.clone()),
                 charms: None,
             })
@@ -226,8 +220,9 @@ impl Spell {
             .tx
             .outs
             .iter()
-            .map(|n_charms| Utxo {
-                utxo_id: None,
+            .map(|n_charms| Output {
+                address: None,
+                sats: None,
                 charms: match n_charms
                     .iter()
                     .map(|(i, data)| {
@@ -258,6 +253,24 @@ impl Spell {
 
 pub fn str_index(i: &usize) -> String {
     format!("${:04}", i)
+}
+
+fn app_inputs(
+    keyed_apps: &BTreeMap<String, App>,
+    keyed_inputs: &BTreeMap<String, Value>,
+) -> BTreeMap<App, Data> {
+    keyed_apps
+        .iter()
+        .map(|(k, app)| {
+            (
+                app.clone(),
+                keyed_inputs
+                    .get(k)
+                    .map(|v| Data::from(v))
+                    .unwrap_or_default(),
+            )
+        })
+        .collect()
 }
 
 pub fn prove(

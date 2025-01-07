@@ -449,10 +449,10 @@ pub fn nft_state_preserved(app: &App, tx: &Transaction) -> bool {
 
 pub fn app_state_multiset<'a>(
     app: &App,
-    strands: impl Iterator<Item = &'a Charms>,
+    strings_of_charms: impl Iterator<Item = &'a Charms>,
 ) -> BTreeMap<&'a Data, usize> {
-    strands
-        .filter_map(|strand| strand.get(app))
+    strings_of_charms
+        .filter_map(|charms| charms.get(app))
         .fold(BTreeMap::new(), |mut r, s| {
             match r.get_mut(&s) {
                 Some(count) => *count += 1,
@@ -466,9 +466,9 @@ pub fn app_state_multiset<'a>(
 
 pub fn sum_token_amount<'a>(
     self_app: &App,
-    strands: impl Iterator<Item = &'a Charms>,
+    strings_of_charms: impl Iterator<Item = &'a Charms>,
 ) -> Result<u64> {
-    strands.fold(Ok(0u64), |amount, strand| match strand.get(self_app) {
+    strings_of_charms.fold(Ok(0u64), |amount, charms| match charms.get(self_app) {
         Some(state) => Ok(amount? + state.value::<u64>()?),
         None => amount,
     })
@@ -495,32 +495,32 @@ mod tests {
 
     #[proptest]
     fn vk_serde_roundtrip(vk: B32) {
-        let bytes = postcard::to_stdvec(&vk).unwrap();
-        let deserialize_result = postcard::from_bytes::<B32>(&bytes);
+        let bytes = util::write(&vk).unwrap();
+        let deserialize_result = util::read::<B32>(&bytes);
         let vk2 = deserialize_result.unwrap();
         prop_assert_eq!(vk, vk2);
     }
 
     #[proptest]
     fn app_serde_roundtrip(app: App) {
-        let bytes = postcard::to_stdvec(&app).unwrap();
-        let deserialize_result = postcard::from_bytes::<App>(&bytes);
+        let bytes = util::write(&app).unwrap();
+        let deserialize_result = util::read::<App>(&bytes);
         let app2 = deserialize_result.unwrap();
         prop_assert_eq!(app, app2);
     }
 
     #[proptest]
     fn utxo_id_serde_roundtrip(utxo_id: UtxoId) {
-        let bytes = postcard::to_stdvec(&utxo_id).unwrap();
-        let deserialize_result = postcard::from_bytes::<UtxoId>(&bytes);
+        let bytes = util::write(&utxo_id).unwrap();
+        let deserialize_result = util::read::<UtxoId>(&bytes);
         let utxo_id2 = deserialize_result.unwrap();
         prop_assert_eq!(utxo_id, utxo_id2);
     }
 
     #[proptest]
     fn tx_id_serde_roundtrip(tx_id: TxId) {
-        let bytes = postcard::to_stdvec(&tx_id).unwrap();
-        let deserialize_result = postcard::from_bytes::<TxId>(&bytes);
+        let bytes = util::write(&tx_id).unwrap();
+        let deserialize_result = util::read::<TxId>(&bytes);
         let tx_id2 = deserialize_result.unwrap();
         prop_assert_eq!(tx_id, tx_id2);
     }

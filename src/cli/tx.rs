@@ -1,5 +1,9 @@
-use crate::{cli::TxCommands, tx, tx::add_spell};
-use anyhow::{anyhow, Result};
+use crate::{
+    cli::TxAddSpellParams,
+    tx,
+    tx::{add_spell, txs_by_txid},
+};
+use anyhow::{anyhow, ensure, Result};
 use bitcoin::{
     consensus::encode::{deserialize_hex, serialize_hex},
     Amount, FeeRate, OutPoint, Transaction,
@@ -17,18 +21,16 @@ pub(crate) fn parse_outpoint(s: &str) -> Result<OutPoint> {
     Ok(OutPoint::new(parts[0].parse()?, parts[1].parse()?))
 }
 
-pub fn tx_add_spell(command: TxCommands) -> Result<()> {
-    let TxCommands::AddSpell {
+pub fn tx_add_spell(
+    TxAddSpellParams {
         tx,
+        prev_txs,
         funding_utxo_id,
         funding_utxo_value,
         change_address,
         fee_rate,
-    } = command
-    else {
-        unreachable!()
-    };
-
+    }: TxAddSpellParams,
+) -> Result<()> {
     // Read spell data from stdin
     let spell_and_proof: (NormalizedSpell, Proof) = util::read(std::io::stdin())?;
 
@@ -52,6 +54,12 @@ pub fn tx_add_spell(command: TxCommands) -> Result<()> {
     // Parse fee rate
     let fee_rate = FeeRate::from_sat_per_kwu((fee_rate * 1000.0 / 4.0) as u64);
 
+    let prev_txs = txs_by_txid(prev_txs)?;
+    ensure!(tx
+        .input
+        .iter()
+        .all(|input| prev_txs.contains_key(&input.previous_output.txid)));
+
     // Call the add_spell function
     let transactions = add_spell(
         tx,
@@ -60,6 +68,7 @@ pub fn tx_add_spell(command: TxCommands) -> Result<()> {
         funding_utxo_value,
         change_script_pubkey,
         fee_rate,
+        &prev_txs,
     );
 
     // Convert transactions to hex and create JSON array

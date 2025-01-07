@@ -114,20 +114,25 @@ pub enum SpellCommands {
     Render(#[command(flatten)] SpellRenderParams),
 }
 
+#[derive(Args)]
+pub struct TxAddSpellParams {
+    #[arg(long)]
+    tx: String,
+    #[arg(long, value_delimiter = ',')]
+    prev_txs: Vec<String>,
+    #[arg(long)]
+    funding_utxo_id: String,
+    #[arg(long)]
+    funding_utxo_value: u64,
+    #[arg(long)]
+    change_address: String,
+    #[arg(long)]
+    fee_rate: f64,
+}
+
 #[derive(Subcommand)]
 pub enum TxCommands {
-    AddSpell {
-        #[arg(long)]
-        tx: String,
-        #[arg(long)]
-        funding_utxo_id: String,
-        #[arg(long)]
-        funding_utxo_value: u64,
-        #[arg(long)]
-        change_address: String,
-        #[arg(long)]
-        fee_rate: f64,
-    },
+    AddSpell(#[command(flatten)] TxAddSpellParams),
     ShowSpell {
         #[arg(long)]
         tx: String,
@@ -166,12 +171,26 @@ pub enum AppCommands {
 pub enum WalletCommands {
     /// List outputs with charms
     List(#[command(flatten)] WalletListParams),
+    Cast(#[command(flatten)] WalletCastParams),
 }
 
 #[derive(Args)]
 pub struct WalletListParams {
     #[arg(long)]
     json: bool,
+}
+
+#[derive(Args)]
+pub struct WalletCastParams {
+    /// Path to spell source file (YAML/JSON)
+    #[arg(long, default_value = "/dev/stdin")]
+    spell: PathBuf,
+    #[arg(long, value_delimiter = ',')]
+    app_bins: Vec<PathBuf>,
+    #[arg(long)]
+    funding_utxo_id: String,
+    #[arg(long, default_value = "2.0")]
+    fee_rate: f64,
 }
 
 pub async fn run() -> anyhow::Result<()> {
@@ -184,7 +203,7 @@ pub async fn run() -> anyhow::Result<()> {
             SpellCommands::Render(params) => spell::render(params),
         },
         Commands::Tx { command } => match command {
-            TxCommands::AddSpell { .. } => tx::tx_add_spell(command),
+            TxCommands::AddSpell(params) => tx::tx_add_spell(params),
             TxCommands::ShowSpell { tx } => tx::tx_show_spell(tx),
         },
         Commands::App { command } => match command {
@@ -195,6 +214,7 @@ pub async fn run() -> anyhow::Result<()> {
         },
         Commands::Wallet { command } => match command {
             WalletCommands::List(params) => wallet::list(params),
+            WalletCommands::Cast(params) => wallet::cast(params),
         },
     }
 }

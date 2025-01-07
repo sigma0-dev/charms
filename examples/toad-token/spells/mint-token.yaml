@@ -1,0 +1,21 @@
+version: 0
+
+apps:
+  $00: n/${app_id}/${app_vk}
+  $01: t/${app_id}/${app_vk}
+
+private_inputs:
+  $00: ""
+
+ins:
+  - utxo_id: ${in_utxo_0}
+    charms:
+      $00: 100000
+
+outs:
+  - address: ${addr_0}
+    charms:
+      $01: 69420
+  - address: ${addr_1}
+    charms:
+      $00: 30580

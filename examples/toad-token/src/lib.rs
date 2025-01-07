@@ -1,16 +1,15 @@
 use charms_sdk::data::{
     check, nft_state_preserved, sum_token_amount, token_amounts_balanced, App, Data, Transaction,
-    B32, NFT, TOKEN,
+    UtxoId, B32, NFT, TOKEN,
 };
 use sha2::{Digest, Sha256};
 
 pub fn app_contract(app: &App, tx: &Transaction, x: &Data, w: &Data) -> bool {
     let empty = Data::empty();
     assert_eq!(x, &empty);
-    assert_eq!(w, &empty);
     match app.tag {
         NFT => {
-            check!(nft_contract_satisfied(app, tx))
+            check!(nft_contract_satisfied(app, tx, w))
         }
         TOKEN => {
             check!(token_contract_satisfied(app, tx))
@@ -20,22 +19,28 @@ pub fn app_contract(app: &App, tx: &Transaction, x: &Data, w: &Data) -> bool {
     true
 }
 
-fn nft_contract_satisfied(app: &App, tx: &Transaction) -> bool {
+fn nft_contract_satisfied(app: &App, tx: &Transaction, w: &Data) -> bool {
     let token_app = &App {
         tag: TOKEN,
         identity: app.identity.clone(),
         vk: app.vk.clone(),
     };
-    check!(nft_state_preserved(app, tx) || can_mint_nft(app, tx) || can_mint_token(&token_app, tx));
+    check!(
+        nft_state_preserved(app, tx) || can_mint_nft(app, tx, w) || can_mint_token(&token_app, tx)
+    );
     true
 }
 
-fn can_mint_nft(nft_app: &App, tx: &Transaction) -> bool {
-    // can only mint an NFT with this contract if spending a UTXO with the same ID.
-    check!(tx
-        .ins
-        .iter()
-        .any(|(utxo_id, _)| &hash(&Data::from(utxo_id)) == &nft_app.identity));
+fn can_mint_nft(nft_app: &App, tx: &Transaction, w: &Data) -> bool {
+    let w_str: String = w.value().unwrap();
+
+    // can only mint an NFT with this contract if the hash of `w` is the identity of the NFT.
+    check!(hash(&w_str) == nft_app.identity);
+
+    // can only mint an NFT with this contract if spending a UTXO with the same ID as passed in `w`.
+    let w_utxo_id = UtxoId::from_str(&w_str).unwrap();
+    check!(tx.ins.iter().any(|(utxo_id, _)| utxo_id == &w_utxo_id));
+
     // can mint no more than one NFT.
     check!(
         tx.outs
@@ -47,8 +52,8 @@ fn can_mint_nft(nft_app: &App, tx: &Transaction) -> bool {
     true
 }
 
-fn hash(data: &Data) -> B32 {
-    let hash = Sha256::digest(data.bytes());
+pub(crate) fn hash(data: &str) -> B32 {
+    let hash = Sha256::digest(data);
     B32(hash.into())
 }
 
@@ -104,6 +109,19 @@ fn can_mint_token(token_app: &App, tx: &Transaction) -> bool {
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    use charms_sdk::data::UtxoId;
+
     #[test]
     fn dummy() {}
+
+    #[test]
+    fn test_hash() {
+        let utxo_id =
+            UtxoId::from_str("dc78b09d767c8565c4a58a95e7ad5ee22b28fc1685535056a395dc94929cdd5f:1")
+                .unwrap();
+        let data = dbg!(utxo_id.to_string());
+        let expected = "f54f6d40bd4ba808b188963ae5d72769ad5212dd1d29517ecc4063dd9f033faa";
+        assert_eq!(&hash(&data).to_string(), expected);
+    }
 }

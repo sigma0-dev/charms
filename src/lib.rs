@@ -3,6 +3,7 @@ pub mod cli;
 pub mod script;
 pub mod spell;
 pub mod tx;
+pub mod utils;
 
 pub const SPELL_CHECKER_BINARY: &[u8] = include_bytes!("./bin/charms-spell-checker");
 
