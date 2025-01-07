@@ -4,7 +4,7 @@ pub mod v0;
 
 use crate::tx::extract_spell;
 use bitcoin::hashes::Hash;
-use charms_data::{App, Charm, Data, Transaction, TxId, UtxoId};
+use charms_data::{App, Charms, Data, Transaction, TxId, UtxoId};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -20,7 +20,7 @@ pub struct SpellProverInput {
     pub app_contract_proofs: BTreeSet<usize>, // proofs are provided in input stream data
 }
 
-pub type NormalizedCharm = BTreeMap<usize, Data>;
+pub type NormalizedCharms = BTreeMap<usize, Data>;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct NormalizedTransaction {
@@ -35,7 +35,7 @@ pub struct NormalizedTransaction {
     /// We only know the index of each output charm.
     /// **Must** be in the order of the hosting transaction's outputs.
     /// **Must not** be larger than the number of outputs in the hosting transaction.
-    pub outs: Vec<NormalizedCharm>,
+    pub outs: Vec<NormalizedCharms>,
 }
 
 impl NormalizedTransaction {
@@ -107,22 +107,23 @@ impl NormalizedSpell {
         &self,
         prev_spells: &BTreeMap<TxId, (Option<NormalizedSpell>, usize)>,
     ) -> Transaction {
-        let from_utxo_id = |utxo_id: &UtxoId| -> (UtxoId, Charm) {
+        let from_utxo_id = |utxo_id: &UtxoId| -> (UtxoId, Charms) {
             let (prev_spell_opt, _) = &prev_spells[&utxo_id.0];
-            let charm = prev_spell_opt
+            let charms = prev_spell_opt
                 .as_ref()
                 .and_then(|prev_spell| {
                     prev_spell
                         .tx
                         .outs
                         .get(utxo_id.1 as usize)
-                        .map(|n_charm| prev_spell.charm(n_charm))
+                        .map(|n_charms| prev_spell.charms(n_charms))
                 })
                 .unwrap_or_default();
-            (utxo_id.clone(), charm)
+            (utxo_id.clone(), charms)
         };
 
-        let from_normalized_charm = |n_charm: &NormalizedCharm| -> Charm { self.charm(n_charm) };
+        let from_normalized_charms =
+            |n_charms: &NormalizedCharms| -> Charms { self.charms(n_charms) };
 
         let Some(tx_ins) = &self.tx.ins else {
             unreachable!("self.tx.ins MUST be Some at this point");
@@ -130,7 +131,7 @@ impl NormalizedSpell {
         Transaction {
             ins: tx_ins.iter().map(from_utxo_id).collect(),
             refs: self.tx.refs.iter().map(from_utxo_id).collect(),
-            outs: self.tx.outs.iter().map(from_normalized_charm).collect(),
+            outs: self.tx.outs.iter().map(from_normalized_charms).collect(),
         }
     }
 
@@ -173,9 +174,9 @@ impl NormalizedSpell {
         true
     }
 
-    fn charm(&self, n_charm: &NormalizedCharm) -> Charm {
+    fn charms(&self, n_charms: &NormalizedCharms) -> Charms {
         let apps = self.apps();
-        n_charm
+        n_charms
             .iter()
             .map(|(&i, data)| (apps[i].clone(), data.clone()))
             .collect()

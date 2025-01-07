@@ -30,16 +30,16 @@ macro_rules! check {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Transaction {
     /// Input UTXOs.
-    pub ins: BTreeMap<UtxoId, Charm>,
+    pub ins: BTreeMap<UtxoId, Charms>,
     /// Reference UTXOs.
-    pub refs: BTreeMap<UtxoId, Charm>,
+    pub refs: BTreeMap<UtxoId, Charms>,
     /// Output charms.
-    pub outs: Vec<Charm>,
+    pub outs: Vec<Charms>,
 }
 
 /// Charm is essentially an app-level UTXO that can carry tokens, NFTs, arbitrary app state.
 /// Structurally it is a sorted map of `app -> app_state`
-pub type Charm = BTreeMap<App, AppState>;
+pub type Charms = BTreeMap<App, Data>;
 
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Default, Eq, Ord, PartialEq, PartialOrd)]
@@ -151,18 +151,18 @@ impl<'de> Deserialize<'de> for UtxoId {
 pub struct App {
     pub tag: char,
     pub id: UtxoId,
-    pub vk_hash: VkHash,
+    pub vk: VK,
 }
 
 impl Display for App {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}/{}/{}", self.tag, self.id, self.vk_hash)
+        write!(f, "{}/{}/{}", self.tag, self.id, self.vk)
     }
 }
 
 impl fmt::Debug for App {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "App({}/{}/{})", self.tag, self.id, self.vk_hash)
+        write!(f, "App({}/{}/{})", self.tag, self.id, self.vk)
     }
 }
 
@@ -177,7 +177,7 @@ impl Serialize for App {
             let mut s = serializer.serialize_tuple(3)?;
             s.serialize_element(&self.tag)?;
             s.serialize_element(&self.id)?;
-            s.serialize_element(&self.vk_hash)?;
+            s.serialize_element(&self.vk)?;
             s.end()
         }
     }
@@ -228,13 +228,15 @@ impl<'de> Deserialize<'de> for App {
                     .map_err(|e| E::custom(format!("invalid vk_hash hex: {}", e)))?;
 
                 // Convert vk_hash bytes to VkHash
-                let vk_hash = VkHash(
-                    vk_hash_bytes
-                        .try_into()
-                        .map_err(|e| E::custom(format!("invalid vk_hash: {:?}", e)))?,
-                );
+                let vk_hash = VK(vk_hash_bytes
+                    .try_into()
+                    .map_err(|e| E::custom(format!("invalid vk_hash: {:?}", e)))?);
 
-                Ok(App { tag, id, vk_hash })
+                Ok(App {
+                    tag,
+                    id,
+                    vk: vk_hash,
+                })
             }
 
             fn visit_seq<A>(self, mut seq: A) -> core::result::Result<Self::Value, A::Error>
@@ -251,7 +253,11 @@ impl<'de> Deserialize<'de> for App {
                     .next_element()?
                     .ok_or_else(|| de::Error::missing_field("vk_hash"))?;
 
-                Ok(App { tag, id, vk_hash })
+                Ok(App {
+                    tag,
+                    id,
+                    vk: vk_hash,
+                })
             }
         }
 
@@ -262,8 +268,6 @@ impl<'de> Deserialize<'de> for App {
         }
     }
 }
-
-pub type AppState = Data;
 
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
@@ -353,15 +357,15 @@ impl<'de> Deserialize<'de> for TxId {
 
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Default, Serialize, Deserialize)]
-pub struct VkHash(pub [u8; 32]);
+pub struct VK(pub [u8; 32]);
 
-impl Display for VkHash {
+impl Display for VK {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         hex::encode(&self.0).fmt(f)
     }
 }
 
-impl fmt::Debug for VkHash {
+impl fmt::Debug for VK {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "VkHash({})", hex::encode(&self.0))
     }
@@ -444,10 +448,10 @@ pub fn nft_state_preserved(app: &App, tx: &Transaction) -> bool {
 
 pub fn app_state_multiset<'a>(
     app: &App,
-    charms: impl Iterator<Item = &'a Charm>,
-) -> BTreeMap<&'a AppState, usize> {
-    charms
-        .filter_map(|charm| charm.get(app))
+    strands: impl Iterator<Item = &'a Charms>,
+) -> BTreeMap<&'a Data, usize> {
+    strands
+        .filter_map(|strand| strand.get(app))
         .fold(BTreeMap::new(), |mut r, s| {
             match r.get_mut(&s) {
                 Some(count) => *count += 1,
@@ -461,9 +465,9 @@ pub fn app_state_multiset<'a>(
 
 pub fn sum_token_amount<'a>(
     self_app: &App,
-    charms: impl Iterator<Item = &'a Charm>,
+    strands: impl Iterator<Item = &'a Charms>,
 ) -> Result<u64> {
-    charms.fold(Ok(0u64), |amount, charm| match charm.get(self_app) {
+    strands.fold(Ok(0u64), |amount, strand| match strand.get(self_app) {
         Some(state) => Ok(amount? + u64::try_from(state)?),
         None => amount,
     })
@@ -497,11 +501,11 @@ mod tests {
         }
 
         #[test]
-        fn vk_hash_serde_roundtrip(vk_hash: VkHash) {
-            let bytes = postcard::to_stdvec(&vk_hash).unwrap();
-            let deserialize_result = postcard::from_bytes::<VkHash>(&bytes);
-            let vk_hash2 = deserialize_result.unwrap();
-            prop_assert_eq!(vk_hash, vk_hash2);
+        fn vk_serde_roundtrip(vk: VK) {
+            let bytes = postcard::to_stdvec(&vk).unwrap();
+            let deserialize_result = postcard::from_bytes::<VK>(&bytes);
+            let vk2 = deserialize_result.unwrap();
+            prop_assert_eq!(vk, vk2);
         }
 
         #[test]
@@ -521,11 +525,11 @@ mod tests {
         }
 
         #[test]
-        fn charm_serde_roundtrip(charm: Charm) {
-            let bytes = postcard::to_stdvec(&charm).unwrap();
-            let deserialize_result = postcard::from_bytes::<Charm>(&bytes);
-            let charm2 = deserialize_result.unwrap();
-            prop_assert_eq!(charm, charm2);
+        fn charm_serde_roundtrip(strand: Charms) {
+            let bytes = postcard::to_stdvec(&strand).unwrap();
+            let deserialize_result = postcard::from_bytes::<Charms>(&bytes);
+            let strand2 = deserialize_result.unwrap();
+            prop_assert_eq!(strand, strand2);
         }
 
         #[test]

@@ -1,8 +1,8 @@
 use crate::{app, SPELL_CHECKER_BINARY};
 use anyhow::{anyhow, ensure, Error};
-use charms_data::{App, Charm, Data, Transaction, UtxoId, VkHash};
+use charms_data::{App, Charms, Data, Transaction, UtxoId, VK};
 use charms_spell_checker::{
-    NormalizedCharm, NormalizedSpell, NormalizedTransaction, Proof, SpellProverInput,
+    NormalizedCharms, NormalizedSpell, NormalizedTransaction, Proof, SpellProverInput,
 };
 use ciborium::Value;
 use serde::{Deserialize, Serialize};
@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// Charm as represented in a spell.
 /// Map of `$TICKER: data`
-pub type KeyedCharm = BTreeMap<String, Value>;
+pub type KeyedCharms = BTreeMap<String, Value>;
 
 /// UTXO as represented in a spell.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -19,7 +19,7 @@ pub struct Utxo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub utxo_id: Option<UtxoId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub charm: Option<KeyedCharm>,
+    pub charms: Option<KeyedCharms>,
 }
 
 /// Defines how spells are represented on the wire,
@@ -56,19 +56,19 @@ impl Spell {
     }
 
     pub fn to_tx(&self) -> anyhow::Result<Transaction> {
-        let ins = self.charms(&self.ins)?;
+        let ins = self.strands(&self.ins)?;
         let empty_vec = vec![];
-        let refs = self.charms(self.refs.as_ref().unwrap_or(&empty_vec))?;
+        let refs = self.strands(self.refs.as_ref().unwrap_or(&empty_vec))?;
         let outs = self
             .outs
             .iter()
-            .map(|utxo| self.charm(utxo))
+            .map(|utxo| self.charms(utxo))
             .collect::<Result<_, _>>()?;
 
         Ok(Transaction { ins, refs, outs })
     }
 
-    fn charms(&self, utxos: &Vec<Utxo>) -> anyhow::Result<BTreeMap<UtxoId, Charm>> {
+    fn strands(&self, utxos: &Vec<Utxo>) -> anyhow::Result<BTreeMap<UtxoId, Charms>> {
         utxos
             .iter()
             .map(|utxo| {
@@ -76,14 +76,14 @@ impl Spell {
                     .utxo_id
                     .as_ref()
                     .ok_or(anyhow!("missing input utxo_id"))?;
-                let charm = self.charm(utxo)?;
-                Ok((utxo_id.clone(), charm))
+                let strand = self.charms(utxo)?;
+                Ok((utxo_id.clone(), strand))
             })
             .collect::<Result<_, _>>()
     }
 
-    fn charm(&self, utxo: &Utxo) -> anyhow::Result<Charm> {
-        utxo.charm
+    fn charms(&self, utxo: &Utxo) -> anyhow::Result<Charms> {
+        utxo.charms
             .as_ref()
             .ok_or(anyhow!("missing input charm"))?
             .iter()
@@ -91,7 +91,7 @@ impl Spell {
                 let app = self.apps.get(k).ok_or(anyhow!("missing app {}", k))?;
                 Ok((app.clone(), Data::from(v)))
             })
-            .collect::<Result<Charm, _>>()
+            .collect::<Result<Charms, _>>()
     }
 
     pub fn normalized(&self) -> anyhow::Result<(NormalizedSpell, BTreeMap<App, Data>)> {
@@ -135,14 +135,14 @@ impl Spell {
             .collect::<Result<_, _>>()?;
         ensure!(refs.len() == self_refs.len(), "duplicate reference inputs");
 
-        let empty_charm = KeyedCharm::new();
+        let empty_charm = KeyedCharms::new();
 
-        let outs: Vec<NormalizedCharm> = self
+        let outs: Vec<NormalizedCharms> = self
             .outs
             .iter()
             .map(|utxo| {
-                let charm = utxo
-                    .charm
+                let n_charms = utxo
+                    .charms
                     .as_ref()
                     .unwrap_or(&empty_charm)
                     .iter()
@@ -153,8 +153,8 @@ impl Spell {
                             .expect("app should be in app_to_index");
                         Ok((i, Data::from(v)))
                     })
-                    .collect::<Result<NormalizedCharm, Error>>()?;
-                Ok(charm)
+                    .collect::<Result<NormalizedCharms, Error>>()?;
+                Ok(n_charms)
             })
             .collect::<Result<_, Error>>()?;
 
@@ -206,7 +206,7 @@ impl Spell {
             .iter()
             .map(|utxo_id| Utxo {
                 utxo_id: Some(utxo_id.clone()),
-                charm: None,
+                charms: None,
             })
             .collect();
 
@@ -216,7 +216,7 @@ impl Spell {
             .iter()
             .map(|utxo_id| Utxo {
                 utxo_id: Some(utxo_id.clone()),
-                charm: None,
+                charms: None,
             })
             .collect::<Vec<_>>()
         {
@@ -228,9 +228,9 @@ impl Spell {
             .tx
             .outs
             .iter()
-            .map(|charm| Utxo {
+            .map(|n_charms| Utxo {
                 utxo_id: None,
-                charm: match charm
+                charms: match n_charms
                     .iter()
                     .map(|(i, data)| {
                         (
@@ -240,10 +240,10 @@ impl Spell {
                                 .unwrap_or_else(|| Value::Bytes(data.as_ref().to_vec())),
                         )
                     })
-                    .collect::<KeyedCharm>()
+                    .collect::<KeyedCharms>()
                 {
-                    charm if charm.is_empty() => None,
-                    charm => Some(charm),
+                    charms if charms.is_empty() => None,
+                    charms => Some(charms),
                 },
             })
             .collect();
@@ -266,7 +266,7 @@ fn str_index(i: &usize) -> String {
 
 pub fn prove(
     norm_spell: NormalizedSpell,
-    app_binaries: &BTreeMap<VkHash, Vec<u8>>,
+    app_binaries: &BTreeMap<VK, Vec<u8>>,
     app_private_inputs: BTreeMap<App, Data>,
     prev_txs: Vec<bitcoin::Transaction>,
     spell_vk: &str,
@@ -285,7 +285,7 @@ pub fn prove(
             .app_public_inputs
             .iter()
             .zip(0..)
-            .filter_map(|((app, _), i)| (app_binaries.get(&app.vk_hash).map(|_| i as usize)))
+            .filter_map(|((app, _), i)| (app_binaries.get(&app.vk).map(|_| i as usize)))
             .collect(),
     };
     let input_vec: Vec<u8> = {
@@ -331,8 +331,8 @@ $TOAD_SUB: 10
 $TOAD: 9
 "#;
 
-        let charm = serde_yaml::from_str::<KeyedCharm>(y).unwrap();
-        dbg!(&charm);
+        let charms = serde_yaml::from_str::<KeyedCharms>(y).unwrap();
+        dbg!(&charms);
 
         let utxo_id =
             UtxoId::from_str("f72700ac56bd4dd61f2ccb4acdf21d0b11bb294fc3efa9012b77903932197d2f:2")

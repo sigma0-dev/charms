@@ -53,7 +53,7 @@ fn to_app_contract_proof(app: &App, has_proof: bool) -> Box<dyn AppContractProof
         false => V0AppContractProof { vk: None },
         true => {
             let vk: [u32; 8] = unsafe {
-                let vk: [u8; 32] = app.vk_hash.0; // app.vk_hash is the VK of the app contract in V0
+                let vk: [u8; 32] = app.vk.0; // app.vk_hash is the VK of the app contract in V0
                 std::mem::transmute(vk)
             };
             V0AppContractProof { vk: Some(vk) }

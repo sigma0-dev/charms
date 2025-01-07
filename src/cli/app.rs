@@ -1,6 +1,6 @@
 use crate::{app, spell::Spell};
 use anyhow::{anyhow, ensure, Result};
-use charms_data::{Data, VkHash};
+use charms_data::{Data, VK};
 use ciborium::Value;
 use std::{
     collections::BTreeMap,
@@ -95,12 +95,12 @@ pub fn run(spell: PathBuf, path: Option<PathBuf>) -> Result<()> {
     )?;
     let tx = spell.to_tx()?;
 
-    let vk_hash = VkHash(vk);
+    let vk_hash = VK(vk);
     let public_inputs = spell.public_inputs.unwrap_or_default();
     let private_inputs = spell.private_inputs.unwrap_or_default();
 
     let mut app_present = false;
-    for (k, app) in spell.apps.iter().filter(|(_, app)| app.vk_hash == vk_hash) {
+    for (k, app) in spell.apps.iter().filter(|(_, app)| app.vk == vk_hash) {
         app_present = true;
         let x = data_for_key(&public_inputs, k);
         let w = data_for_key(&private_inputs, k);
