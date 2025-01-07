@@ -23,7 +23,7 @@ fn nft_contract_satisfied(app: &App, tx: &Transaction) -> bool {
     let token_app = &App {
         tag: TOKEN,
         id: app.id.clone(),
-        vk_hash: app.vk_hash.clone(),
+        vk: app.vk.clone(),
     };
     check!(nft_state_preserved(app, tx) || can_mint_nft(app, tx) || can_mint_token(&token_app, tx));
     true
@@ -36,7 +36,7 @@ fn can_mint_nft(nft_app: &App, tx: &Transaction) -> bool {
     check!(
         tx.outs
             .iter()
-            .filter(|&charm| charm.iter().any(|(app, _)| app == nft_app))
+            .filter(|&charms| charms.iter().any(|(app, _)| app == nft_app))
             .count()
             == 1
     );
@@ -52,13 +52,13 @@ fn can_mint_token(token_app: &App, tx: &Transaction) -> bool {
     let nft_app = App {
         tag: NFT,
         id: token_app.id.clone(),
-        vk_hash: token_app.vk_hash.clone(),
+        vk: token_app.vk.clone(),
     };
 
     let Some(incoming_supply): Option<u64> = tx
         .ins
         .iter()
-        .find_map(|(_, charm)| charm.get(&nft_app).cloned())
+        .find_map(|(_, charms)| charms.get(&nft_app).cloned())
         .and_then(|data| u64::try_from(&data).ok())
     else {
         eprintln!("could not determine incoming supply");
@@ -68,7 +68,7 @@ fn can_mint_token(token_app: &App, tx: &Transaction) -> bool {
     let Some(outgoing_supply): Option<u64> = tx
         .outs
         .iter()
-        .find_map(|charm| charm.get(&nft_app).cloned())
+        .find_map(|charms| charms.get(&nft_app).cloned())
         .and_then(|data| u64::try_from(&data).ok())
     else {
         eprintln!("could not determine outgoing supply");

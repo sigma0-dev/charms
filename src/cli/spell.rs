@@ -5,7 +5,7 @@ use bitcoin::{
     hashes::Hash,
     Amount, FeeRate, Transaction,
 };
-use charms_data::{TxId, UtxoId, VkHash};
+use charms_data::{TxId, UtxoId, VK};
 use charms_spell_checker::NormalizedSpell;
 use std::{collections::BTreeMap, str::FromStr};
 
@@ -59,7 +59,7 @@ pub fn spell_prove(
         .map(|path| {
             let binary = std::fs::read(path)?;
             let vk_hash = app_prover.vk(&binary);
-            Ok((VkHash(vk_hash), binary))
+            Ok((VK(vk_hash), binary))
         })
         .collect::<Result<_>>()?;
 
