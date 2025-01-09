@@ -1,4 +1,4 @@
-use crate::{cli::ServerConfig, spell::Spell, tx::spell_and_proof};
+use crate::{cli::ServerConfig, spell::Spell, tx::norm_spell_and_proof};
 use anyhow::Result;
 use axum::{extract::Path, http::StatusCode, routing::MethodRouter, Json, Router};
 use bitcoin::{consensus::encode::deserialize_hex, Transaction};
@@ -100,7 +100,7 @@ fn decode_spell(txid: &str, request: &DecodeSpell) -> Result<Spell, StatusCode> 
 }
 
 fn extract_spell(tx: &Transaction) -> Result<Spell, StatusCode> {
-    match spell_and_proof(&tx) {
+    match norm_spell_and_proof(&tx) {
         None => Err(StatusCode::NO_CONTENT),
         Some((spell, _)) => Ok(Spell::denormalized(&spell)),
     }

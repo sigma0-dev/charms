@@ -1,4 +1,11 @@
-use crate::{app, cli::ProveConfig, spell, spell::Spell, tx::add_spell, SPELL_VK};
+use crate::{
+    app,
+    cli::{SpellProveParams, SpellRenderParams},
+    spell,
+    spell::Spell,
+    tx::add_spell,
+    SPELL_VK,
+};
 use anyhow::{anyhow, ensure, Result};
 use bitcoin::{
     consensus::encode::{deserialize_hex, serialize_hex},
@@ -9,15 +16,8 @@ use charms_data::{TxId, UtxoId, VK};
 use charms_spell_checker::NormalizedSpell;
 use std::{collections::BTreeMap, str::FromStr};
 
-pub fn spell_parse() -> Result<()> {
-    let spell: Spell = serde_yaml::from_reader(std::io::stdin())?;
-    ciborium::into_writer(&spell, std::io::stdout())?;
-
-    Ok(())
-}
-
-pub fn spell_prove(
-    ProveConfig {
+pub fn prove(
+    SpellProveParams {
         spell,
         tx,
         prev_txs,
@@ -26,7 +26,7 @@ pub fn spell_prove(
         funding_utxo_value,
         change_address,
         fee_rate,
-    }: ProveConfig,
+    }: SpellProveParams,
 ) -> Result<()> {
     dbg!(&tx);
     dbg!(&prev_txs);
@@ -148,4 +148,8 @@ fn align_spell_to_tx(norm_spell: &mut NormalizedSpell, tx: &Transaction) -> Resu
     }
 
     Ok(())
+}
+
+pub(crate) fn render(_params: SpellRenderParams) -> Result<()> {
+    todo!()
 }

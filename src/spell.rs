@@ -260,7 +260,7 @@ impl Spell {
     }
 }
 
-fn str_index(i: &usize) -> String {
+pub fn str_index(i: &usize) -> String {
     format!("${:04}", i)
 }
 

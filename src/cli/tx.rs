@@ -1,4 +1,4 @@
-use crate::{cli::TxCommands, spell::Spell, tx, tx::add_spell};
+use crate::{cli::TxCommands, tx, tx::add_spell};
 use anyhow::{anyhow, Result};
 use bitcoin::{
     consensus::encode::{deserialize_hex, serialize_hex},
@@ -73,10 +73,9 @@ pub fn tx_add_spell(command: TxCommands) -> Result<()> {
 pub fn tx_show_spell(tx: String) -> Result<()> {
     let tx = deserialize_hex::<Transaction>(&tx)?;
 
-    if let Some((spell, _)) = tx::spell_and_proof(&tx) {
-        serde_yaml::to_writer(std::io::stdout(), &Spell::denormalized(&spell))?;
-    } else {
-        eprintln!("No spell found in the transaction");
+    match tx::spell(&tx) {
+        Some(spell) => serde_yaml::to_writer(std::io::stdout(), &spell)?,
+        None => eprintln!("No spell found in the transaction"),
     }
 
     Ok(())

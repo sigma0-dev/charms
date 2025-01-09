@@ -1,5 +1,6 @@
 use crate::{
     script::{control_block, data_script, taproot_spend_info},
+    spell::Spell,
     SPELL_VK,
 };
 use bitcoin::{
@@ -231,6 +232,13 @@ mod tests {
     }
 }
 
-pub fn spell_and_proof(tx: &Transaction) -> Option<(NormalizedSpell, Proof)> {
+pub fn norm_spell_and_proof(tx: &Transaction) -> Option<(NormalizedSpell, Proof)> {
     charms_spell_checker::tx::extract_spell(&tx, SPELL_VK).ok()
+}
+
+pub fn spell(tx: &Transaction) -> Option<Spell> {
+    match norm_spell_and_proof(tx) {
+        Some((norm_spell, _proof)) => Some(Spell::denormalized(&norm_spell)),
+        None => None,
+    }
 }
