@@ -58,6 +58,14 @@ This will print out the verification key for the Toad Token app, that looks some
 8e877d70518a5b28f5221e70bd7ff7692a603f3a26d7076a5253e21c304a354f
 ```
 
+Test the app for a spell with:
+
+```sh
+charms app run <./spells/send.yaml
+```
+
+This runs the app contract against a concrete spell.
+
 ## Walkthrough
 
 ```sh

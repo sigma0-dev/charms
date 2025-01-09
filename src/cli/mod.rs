@@ -2,6 +2,7 @@ pub mod app;
 pub mod server;
 pub mod spell;
 pub mod tx;
+pub mod wallet;
 
 use clap::{Args, Parser, Subcommand};
 use std::{net::IpAddr, path::PathBuf};
@@ -60,10 +61,16 @@ pub enum Commands {
         #[command(subcommand)]
         command: AppCommands,
     },
+
+    /// Wallet commands
+    Wallet {
+        #[command(subcommand)]
+        command: WalletCommands,
+    },
 }
 
 #[derive(Args)]
-pub struct ProveConfig {
+pub struct SpellProveParams {
     #[arg(long, default_value = "/dev/stdin")]
     spell: PathBuf,
 
@@ -86,10 +93,25 @@ pub struct ProveConfig {
     fee_rate: f64,
 }
 
+#[derive(Args)]
+pub struct SpellRenderParams {
+    #[arg(long, default_value = "/dev/stdin")]
+    formula: PathBuf,
+
+    #[arg(long)]
+    tx: String,
+
+    #[arg(long, value_delimiter = ',')]
+    prev_txs: Vec<String>,
+
+    #[arg(long, value_delimiter = ',')]
+    app_vks: Vec<String>,
+}
+
 #[derive(Subcommand)]
 pub enum SpellCommands {
-    Parse,
-    Prove(#[command(flatten)] ProveConfig),
+    Prove(#[command(flatten)] SpellProveParams),
+    Render(#[command(flatten)] SpellRenderParams),
 }
 
 #[derive(Subcommand)]
@@ -140,14 +162,26 @@ pub enum AppCommands {
     },
 }
 
+#[derive(Subcommand)]
+pub enum WalletCommands {
+    /// List outputs with charms
+    List(#[command(flatten)] WalletListParams),
+}
+
+#[derive(Args)]
+pub struct WalletListParams {
+    #[arg(long)]
+    json: bool,
+}
+
 pub async fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
         Commands::Server(server_config) => server::server(server_config).await,
         Commands::Spell { command } => match command {
-            SpellCommands::Parse => spell::spell_parse(),
-            SpellCommands::Prove(prove_config) => spell::spell_prove(prove_config),
+            SpellCommands::Prove(params) => spell::prove(params),
+            SpellCommands::Render(params) => spell::render(params),
         },
         Commands::Tx { command } => match command {
             TxCommands::AddSpell { .. } => tx::tx_add_spell(command),
@@ -158,6 +192,9 @@ pub async fn run() -> anyhow::Result<()> {
             AppCommands::Vk { path } => app::vk(path),
             AppCommands::Build => app::build(),
             AppCommands::Run { spell, path } => app::run(spell, path),
+        },
+        Commands::Wallet { command } => match command {
+            WalletCommands::List(params) => wallet::list(params),
         },
     }
 }
