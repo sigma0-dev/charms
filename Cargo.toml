@@ -22,7 +22,7 @@ bitcoincore-rpc = { version = "0.19.0" }
 charms-data = { path = "./charms-data", version = "0.2.0-dev" }
 charms-spell-checker = { path = "charms-spell-checker", version = "0.2.0-dev" }
 ciborium = { workspace = true }
-clap = { version = "4.5.0", features = ["derive"] }
+clap = { version = "4.5.26", features = ["derive"] }
 hex = { workspace = true }
 postcard = { workspace = true, features = ["use-std"] }
 rand = { workspace = true }
@@ -30,7 +30,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 sp1-sdk = { workspace = true }
-tokio = { version = "1.0", features = ["full"] }
+tokio = { version = "1.43", features = ["full"] }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
@@ -50,20 +50,20 @@ resolver = "2"
 
 [workspace.dependencies]
 anyhow = { version = "1.0.95" }
-bitcoin = { version = "0.32.0" }
-ciborium = { version = "0.2.0" }
-hex = { version = "0.4.0" }
-postcard = { version = "1.0.0" }
-proptest = { version = "1.0.0" }
-proptest-derive = { version = "0.5.0" }
-rand = { version = "0.8.0" }
+bitcoin = { version = "0.32.5" }
+ciborium = { version = "0.2.2" }
+hex = { version = "0.4.3" }
+postcard = { version = "1.1.1" }
+proptest = { version = "1.6.0" }
+proptest-derive = { version = "0.5.1" }
+rand = { version = "0.8.5" }
 serde = { version = "1.0" }
-serde_json = { version = "1.0.134" }
-serde_yaml = { version = "0.9.0" }
-sp1-primitives = { version = "3.0.0" }
-sp1-sdk = { version = "3.0.0" }
-sp1-verifier = { version = "3.0.0" }
-sp1-zkvm = { version = "3.0.0" }
+serde_json = { version = "1.0.135" }
+serde_yaml = { version = "0.9.34" }
+sp1-primitives = { version = "3.4.0" }
+sp1-sdk = { version = "3.4.0" }
+sp1-verifier = { version = "3.4.0" }
+sp1-zkvm = { version = "3.4.0" }
 
 [profile.test]
 lto = "off"
