@@ -412,12 +412,6 @@ impl Default for Data {
     }
 }
 
-impl AsRef<[u8]> for Data {
-    fn as_ref(&self) -> &[u8] {
-        todo!()
-    }
-}
-
 impl fmt::Debug for Data {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Data({})", format!("{:?}", &self.0))
