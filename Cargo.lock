@@ -932,7 +932,7 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
 name = "charms"
-version = "0.1.11"
+version = "0.2.0-dev"
 dependencies = [
  "anyhow",
  "axum 0.8.1",
@@ -958,7 +958,7 @@ dependencies = [
 
 [[package]]
 name = "charms-data"
-version = "0.1.11"
+version = "0.2.0-dev"
 dependencies = [
  "anyhow",
  "ark-std 0.5.0",
@@ -972,7 +972,7 @@ dependencies = [
 
 [[package]]
 name = "charms-sdk"
-version = "0.1.11"
+version = "0.2.0-dev"
 dependencies = [
  "charms-data",
  "sp1-zkvm",
@@ -980,7 +980,7 @@ dependencies = [
 
 [[package]]
 name = "charms-spell-checker"
-version = "0.1.11"
+version = "0.2.0-dev"
 dependencies = [
  "anyhow",
  "bitcoin",
