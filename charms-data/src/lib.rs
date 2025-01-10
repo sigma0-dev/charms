@@ -150,19 +150,19 @@ impl<'de> Deserialize<'de> for UtxoId {
 #[derive(Clone, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct App {
     pub tag: char,
-    pub id: UtxoId,
-    pub vk: VK,
+    pub identity: B32,
+    pub vk: B32,
 }
 
 impl Display for App {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}/{}/{}", self.tag, self.id, self.vk)
+        write!(f, "{}/{}/{}", self.tag, self.identity, self.vk)
     }
 }
 
 impl fmt::Debug for App {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "App({}/{}/{})", self.tag, self.id, self.vk)
+        write!(f, "App({}/{}/{})", self.tag, self.identity, self.vk)
     }
 }
 
@@ -176,7 +176,7 @@ impl Serialize for App {
         } else {
             let mut s = serializer.serialize_tuple(3)?;
             s.serialize_element(&self.tag)?;
-            s.serialize_element(&self.id)?;
+            s.serialize_element(&self.identity)?;
             s.serialize_element(&self.vk)?;
             s.end()
         }
@@ -194,10 +194,10 @@ impl<'de> Deserialize<'de> for App {
             type Value = App;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a string in format 'tag_char/txid_hex:index_int/vk_hash_hex' or a struct with tag, utxo_id and vk_hash fields")
+                formatter.write_str("a string in format 'tag_char/identity_hex/vk_hex' or a struct with tag, identity and vk fields")
             }
 
-            // Handle human-readable format ("tag_hex/vk_hash_hex")
+            // Handle human-readable format ("tag_char/identity_hex/vk_hex")
             fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
             where
                 E: de::Error,
@@ -205,9 +205,7 @@ impl<'de> Deserialize<'de> for App {
                 // Split the string at '/'
                 let parts: Vec<&str> = value.split('/').collect();
                 if parts.len() != 3 {
-                    return Err(E::custom(
-                        "expected format: tag_char/txid_hex:index_int/vk_hash_hex",
-                    ));
+                    return Err(E::custom("expected format: tag_char/identity_hex/vk_hex"));
                 }
 
                 // Decode the hex strings
@@ -222,21 +220,11 @@ impl<'de> Deserialize<'de> for App {
                     tag
                 };
 
-                let id = UtxoId::from_str(parts[1]).map_err(E::custom)?;
+                let identity = B32::from_str(parts[1]).map_err(E::custom)?;
 
-                let vk_hash_bytes = hex::decode(parts[2])
-                    .map_err(|e| E::custom(format!("invalid vk_hash hex: {}", e)))?;
+                let vk = B32::from_str(parts[2]).map_err(E::custom)?;
 
-                // Convert vk_hash bytes to VkHash
-                let vk_hash = VK(vk_hash_bytes
-                    .try_into()
-                    .map_err(|e| E::custom(format!("invalid vk_hash: {:?}", e)))?);
-
-                Ok(App {
-                    tag,
-                    id,
-                    vk: vk_hash,
-                })
+                Ok(App { tag, identity, vk })
             }
 
             fn visit_seq<A>(self, mut seq: A) -> core::result::Result<Self::Value, A::Error>
@@ -255,7 +243,7 @@ impl<'de> Deserialize<'de> for App {
 
                 Ok(App {
                     tag,
-                    id,
+                    identity: id,
                     vk: vk_hash,
                 })
             }
@@ -357,15 +345,30 @@ impl<'de> Deserialize<'de> for TxId {
 
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Default, Serialize, Deserialize)]
-pub struct VK(pub [u8; 32]);
+pub struct B32(pub [u8; 32]);
 
-impl Display for VK {
+impl B32 {
+    pub fn from_str(s: &str) -> Result<Self> {
+        ensure!(s.len() == 64, "expected 64 hex characters");
+        let bytes = hex::decode(s).map_err(|e| anyhow!("invalid hex: {}", e))?;
+        let hash: [u8; 32] = bytes.try_into().unwrap();
+        Ok(B32(hash))
+    }
+}
+
+impl AsRef<[u8]> for B32 {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl Display for B32 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         hex::encode(&self.0).fmt(f)
     }
 }
 
-impl fmt::Debug for VK {
+impl fmt::Debug for B32 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "VkHash({})", hex::encode(&self.0))
     }
@@ -501,9 +504,9 @@ mod tests {
         }
 
         #[test]
-        fn vk_serde_roundtrip(vk: VK) {
+        fn vk_serde_roundtrip(vk: B32) {
             let bytes = postcard::to_stdvec(&vk).unwrap();
-            let deserialize_result = postcard::from_bytes::<VK>(&bytes);
+            let deserialize_result = postcard::from_bytes::<B32>(&bytes);
             let vk2 = deserialize_result.unwrap();
             prop_assert_eq!(vk, vk2);
         }

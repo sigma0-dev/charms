@@ -1,6 +1,6 @@
 use crate::{app, spell::Spell};
 use anyhow::{anyhow, ensure, Result};
-use charms_data::{Data, VK};
+use charms_data::{Data, B32};
 use ciborium::Value;
 use std::{
     collections::BTreeMap,
@@ -88,19 +88,18 @@ pub fn run(spell: PathBuf, path: Option<PathBuf>) -> Result<()> {
         }
     };
     let prover = app::Prover::new();
-    let vk: [u8; 32] = prover.vk(&binary);
+    let vk = B32(prover.vk(&binary));
 
     let spell: Spell = serde_yaml::from_slice(
         &fs::read(&spell).map_err(|e| anyhow!("error reading {:?}: {}", &spell, e))?,
     )?;
     let tx = spell.to_tx()?;
 
-    let vk_hash = VK(vk);
     let public_inputs = spell.public_inputs.unwrap_or_default();
     let private_inputs = spell.private_inputs.unwrap_or_default();
 
     let mut app_present = false;
-    for (k, app) in spell.apps.iter().filter(|(_, app)| app.vk == vk_hash) {
+    for (k, app) in spell.apps.iter().filter(|(_, app)| app.vk == vk) {
         app_present = true;
         let x = data_for_key(&public_inputs, k);
         let w = data_for_key(&private_inputs, k);
@@ -108,7 +107,7 @@ pub fn run(spell: PathBuf, path: Option<PathBuf>) -> Result<()> {
         eprintln!("✅ satisfied app contract for: {}", app);
     }
     if !app_present {
-        eprintln!("⚠️ app not present for VK: {}", vk_hash);
+        eprintln!("⚠️ app not present for VK: {}", vk);
     }
 
     Ok(())

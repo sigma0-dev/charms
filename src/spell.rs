@@ -1,6 +1,6 @@
 use crate::{app, SPELL_CHECKER_BINARY};
 use anyhow::{anyhow, ensure, Error};
-use charms_data::{App, Charms, Data, Transaction, UtxoId, VK};
+use charms_data::{App, Charms, Data, Transaction, UtxoId, B32};
 use charms_spell_checker::{
     NormalizedCharms, NormalizedSpell, NormalizedTransaction, Proof, SpellProverInput,
 };
@@ -266,7 +266,7 @@ pub fn str_index(i: &usize) -> String {
 
 pub fn prove(
     norm_spell: NormalizedSpell,
-    app_binaries: &BTreeMap<VK, Vec<u8>>,
+    app_binaries: &BTreeMap<B32, Vec<u8>>,
     app_private_inputs: BTreeMap<App, Data>,
     prev_txs: Vec<bitcoin::Transaction>,
     spell_vk: &str,

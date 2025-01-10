@@ -1,7 +1,8 @@
 use charms_sdk::data::{
     check, nft_state_preserved, sum_token_amount, token_amounts_balanced, App, Data, Transaction,
-    NFT, TOKEN,
+    B32, NFT, TOKEN,
 };
+use sha2::{Digest, Sha256};
 
 pub fn app_contract(app: &App, tx: &Transaction, x: &Data, w: &Data) -> bool {
     let empty = Data::empty();
@@ -22,7 +23,7 @@ pub fn app_contract(app: &App, tx: &Transaction, x: &Data, w: &Data) -> bool {
 fn nft_contract_satisfied(app: &App, tx: &Transaction) -> bool {
     let token_app = &App {
         tag: TOKEN,
-        id: app.id.clone(),
+        identity: app.identity.clone(),
         vk: app.vk.clone(),
     };
     check!(nft_state_preserved(app, tx) || can_mint_nft(app, tx) || can_mint_token(&token_app, tx));
@@ -31,7 +32,10 @@ fn nft_contract_satisfied(app: &App, tx: &Transaction) -> bool {
 
 fn can_mint_nft(nft_app: &App, tx: &Transaction) -> bool {
     // can only mint an NFT with this contract if spending a UTXO with the same ID.
-    check!(tx.ins.iter().any(|(utxo_id, _)| utxo_id == &nft_app.id));
+    check!(tx
+        .ins
+        .iter()
+        .any(|(utxo_id, _)| &hash(&Data::from(utxo_id)) == &nft_app.identity));
     // can mint no more than one NFT.
     check!(
         tx.outs
@@ -43,6 +47,11 @@ fn can_mint_nft(nft_app: &App, tx: &Transaction) -> bool {
     true
 }
 
+fn hash(data: &Data) -> B32 {
+    let hash = Sha256::digest(data.as_ref());
+    B32(hash.into())
+}
+
 fn token_contract_satisfied(token_app: &App, tx: &Transaction) -> bool {
     check!(token_amounts_balanced(token_app, tx) || can_mint_token(token_app, tx));
     true
@@ -51,7 +60,7 @@ fn token_contract_satisfied(token_app: &App, tx: &Transaction) -> bool {
 fn can_mint_token(token_app: &App, tx: &Transaction) -> bool {
     let nft_app = App {
         tag: NFT,
-        id: token_app.id.clone(),
+        identity: token_app.identity.clone(),
         vk: token_app.vk.clone(),
     };
 

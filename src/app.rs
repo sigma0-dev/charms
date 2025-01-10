@@ -1,5 +1,5 @@
 use anyhow::ensure;
-use charms_data::{App, Data, Transaction, VK};
+use charms_data::{App, Data, Transaction, B32};
 use sp1_sdk::{HashableKey, ProverClient, SP1Proof, SP1Stdin, SP1VerifyingKey};
 use std::{collections::BTreeMap, mem};
 
@@ -30,7 +30,7 @@ impl Prover {
 
     pub fn prove(
         &self,
-        app_binaries: &BTreeMap<VK, Vec<u8>>,
+        app_binaries: &BTreeMap<B32, Vec<u8>>,
         tx: Transaction,
         app_public_inputs: &BTreeMap<App, Data>,
         app_private_inputs: BTreeMap<App, Data>,
@@ -75,7 +75,7 @@ impl Prover {
         w: &Data,
     ) -> anyhow::Result<()> {
         let (_pk, vk) = self.client.setup(app_binary);
-        ensure!(app.vk == VK(app_vk(vk)), "app.vk mismatch");
+        ensure!(app.vk == B32(app_vk(vk)), "app.vk mismatch");
 
         let mut app_stdin = SP1Stdin::new();
         app_stdin.write(&(app, &tx, x, w));
