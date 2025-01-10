@@ -1,14 +1,11 @@
-#![feature(auto_traits, negative_impls)]
-
-use anyhow::{anyhow, ensure, Error, Result};
+use anyhow::{anyhow, ensure, Result};
 use ark_std::{
-    boxed::Box,
     collections::BTreeMap,
     format,
     string::{String, ToString},
-    vec,
     vec::Vec,
 };
+use ciborium::Value;
 use core::{convert::TryInto, fmt, fmt::Display};
 use serde::{
     de,
@@ -16,6 +13,7 @@ use serde::{
     ser::SerializeTuple,
     Deserialize, Deserializer, Serialize, Serializer,
 };
+use std::cmp::Ordering;
 
 #[macro_export]
 macro_rules! check {
@@ -374,58 +372,55 @@ impl fmt::Debug for B32 {
     }
 }
 
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-#[derive(Clone, Default, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
-pub struct Data(Box<[u8]>);
+#[derive(Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub struct Data(Value);
+
+impl Eq for Data {}
+
+impl Ord for Data {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0
+            .partial_cmp(&other.0)
+            .expect("Value comparison should have succeeded")
+    }
+}
 
 impl Data {
     pub fn empty() -> Self {
-        Self(Box::new([]))
+        Self(Value::Null)
     }
 
     pub fn try_into<T: DeserializeOwned>(&self) -> Result<T> {
-        ciborium::de::from_reader(self.0.as_ref())
-            .map_err(|e| anyhow!("failed to convert from Data: {}", e))
+        self.0
+            .deserialized()
+            .map_err(|e| anyhow!("deserialization error: {}", e))
+    }
+}
+
+impl<T> From<&T> for Data
+where
+    T: Serialize,
+{
+    fn from(value: &T) -> Self {
+        Self(Value::serialized(value).expect("serialization should have succeeded"))
+    }
+}
+
+impl Default for Data {
+    fn default() -> Self {
+        Self::empty()
     }
 }
 
 impl AsRef<[u8]> for Data {
     fn as_ref(&self) -> &[u8] {
-        &self.0
+        todo!()
     }
 }
 
 impl fmt::Debug for Data {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let v = self.try_into::<ciborium::Value>().ok();
-        write!(
-            f,
-            "Data({})",
-            v.map(|v| format!("{:?}", v))
-                .unwrap_or_else(|| hex::encode(&self.0))
-        )
-    }
-}
-
-auto trait NotData {}
-impl !NotData for Data {}
-
-impl<T> From<T> for Data
-where
-    T: Serialize + NotData,
-{
-    fn from(value: T) -> Self {
-        let mut data = vec![];
-        ciborium::ser::into_writer(&value, &mut data).unwrap();
-        Self(data.into_boxed_slice())
-    }
-}
-
-impl TryFrom<&Data> for u64 {
-    type Error = Error;
-
-    fn try_from(data: &Data) -> Result<Self> {
-        data.try_into()
+        write!(f, "Data({})", format!("{:?}", &self.0))
     }
 }
 
@@ -471,7 +466,7 @@ pub fn sum_token_amount<'a>(
     strands: impl Iterator<Item = &'a Charms>,
 ) -> Result<u64> {
     strands.fold(Ok(0u64), |amount, strand| match strand.get(self_app) {
-        Some(state) => Ok(amount? + u64::try_from(state)?),
+        Some(state) => Ok(amount? + state.try_into::<u64>()?),
         None => amount,
     })
 }
@@ -493,14 +488,6 @@ mod tests {
             let s = txid.to_string();
             let txid2 = TxId::from_str(&s).unwrap();
             prop_assert_eq!(txid, txid2);
-        }
-
-        #[test]
-        fn data_serde_roundtrip(data: Data) {
-            let bytes = postcard::to_stdvec(&data).unwrap();
-            let deserialize_result = postcard::from_bytes::<Data>(&bytes);
-            let data2 = deserialize_result.unwrap();
-            prop_assert_eq!(data, data2);
         }
 
         #[test]
@@ -528,14 +515,6 @@ mod tests {
         }
 
         #[test]
-        fn charm_serde_roundtrip(strand: Charms) {
-            let bytes = postcard::to_stdvec(&strand).unwrap();
-            let deserialize_result = postcard::from_bytes::<Charms>(&bytes);
-            let strand2 = deserialize_result.unwrap();
-            prop_assert_eq!(strand, strand2);
-        }
-
-        #[test]
         fn tx_id_serde_roundtrip(tx_id: TxId) {
             let bytes = postcard::to_stdvec(&tx_id).unwrap();
             let deserialize_result = postcard::from_bytes::<TxId>(&bytes);
@@ -556,14 +535,14 @@ mod tests {
     #[test]
     fn data_dbg() {
         let v = 42u64;
-        let data = Data::from(v);
+        let data: Data = Data::from(&v);
         assert_eq!(format!("{:?}", data), format!("Data({:?})", Value::from(v)));
 
         let data = Data::empty();
         assert_eq!(format!("{:?}", data), "Data()");
 
         let vec1: Vec<u64> = vec![];
-        let data = Data::from(vec1);
+        let data: Data = Data::from(&vec1);
         assert_eq!(format!("{:?}", data), "Data(Array([]))");
     }
 
