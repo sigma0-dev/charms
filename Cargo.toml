@@ -1,6 +1,6 @@
 [package]
 name = "charms"
-description = "⚡️enchant Bitcoin with your spells"
+description = "Enchant Bitcoin with your own spells ✨"
 repository = "https://github.com/sigma0-dev/charms"
 
 version.workspace = true
