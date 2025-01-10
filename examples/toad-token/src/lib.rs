@@ -48,7 +48,7 @@ fn can_mint_nft(nft_app: &App, tx: &Transaction) -> bool {
 }
 
 fn hash(data: &Data) -> B32 {
-    let hash = Sha256::digest(data.as_ref());
+    let hash = Sha256::digest(data.byte_repr());
     B32(hash.into())
 }
 
@@ -68,7 +68,7 @@ fn can_mint_token(token_app: &App, tx: &Transaction) -> bool {
         .ins
         .iter()
         .find_map(|(_, charms)| charms.get(&nft_app).cloned())
-        .and_then(|data| u64::try_from(&data).ok())
+        .and_then(|data| data.value().ok())
     else {
         eprintln!("could not determine incoming supply");
         return false;
@@ -78,7 +78,7 @@ fn can_mint_token(token_app: &App, tx: &Transaction) -> bool {
         .outs
         .iter()
         .find_map(|charms| charms.get(&nft_app).cloned())
-        .and_then(|data| u64::try_from(&data).ok())
+        .and_then(|data| data.value().ok())
     else {
         eprintln!("could not determine outgoing supply");
         return false;

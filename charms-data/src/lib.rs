@@ -390,10 +390,20 @@ impl Data {
         Self(Value::Null)
     }
 
-    pub fn try_into<T: DeserializeOwned>(&self) -> Result<T> {
+    pub fn is_empty(&self) -> bool {
+        self.0.is_null()
+    }
+
+    pub fn value<T: DeserializeOwned>(&self) -> Result<T> {
         self.0
             .deserialized()
             .map_err(|e| anyhow!("deserialization error: {}", e))
+    }
+
+    pub fn byte_repr(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        ciborium::into_writer(&self, &mut buf).expect("serialization should have succeeded");
+        buf
     }
 }
 
@@ -460,7 +470,7 @@ pub fn sum_token_amount<'a>(
     strands: impl Iterator<Item = &'a Charms>,
 ) -> Result<u64> {
     strands.fold(Ok(0u64), |amount, strand| match strand.get(self_app) {
-        Some(state) => Ok(amount? + state.try_into::<u64>()?),
+        Some(state) => Ok(amount? + state.value::<u64>()?),
         None => amount,
     })
 }
@@ -533,7 +543,7 @@ mod tests {
         assert_eq!(format!("{:?}", data), format!("Data({:?})", Value::from(v)));
 
         let data = Data::empty();
-        assert_eq!(format!("{:?}", data), "Data()");
+        assert_eq!(format!("{:?}", data), "Data(Null)");
 
         let vec1: Vec<u64> = vec![];
         let data: Data = Data::from(&vec1);

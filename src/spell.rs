@@ -185,12 +185,10 @@ impl Spell {
         let public_inputs = match (0..)
             .zip(norm_spell.app_public_inputs.values())
             .filter_map(|(i, data)| match data {
-                data if data.as_ref().is_empty() => None,
+                data if data.is_empty() => None,
                 data => Some((
                     str_index(&i),
-                    data.try_into()
-                        .ok()
-                        .unwrap_or_else(|| Value::Bytes(data.as_ref().to_vec())),
+                    data.value().ok().expect("Data should be a Value"),
                 )),
             })
             .collect::<BTreeMap<_, _>>()
@@ -235,9 +233,7 @@ impl Spell {
                     .map(|(i, data)| {
                         (
                             str_index(i),
-                            data.try_into()
-                                .ok()
-                                .unwrap_or_else(|| Value::Bytes(data.as_ref().to_vec())),
+                            data.value().ok().expect("Data should be a Value"),
                         )
                     })
                     .collect::<KeyedCharms>()
