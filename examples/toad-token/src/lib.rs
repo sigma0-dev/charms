@@ -48,7 +48,7 @@ fn can_mint_nft(nft_app: &App, tx: &Transaction) -> bool {
 }
 
 fn hash(data: &Data) -> B32 {
-    let hash = Sha256::digest(data.byte_repr());
+    let hash = Sha256::digest(data.bytes());
     B32(hash.into())
 }
 

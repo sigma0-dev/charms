@@ -400,7 +400,7 @@ impl Data {
             .map_err(|e| anyhow!("deserialization error: {}", e))
     }
 
-    pub fn byte_repr(&self) -> Vec<u8> {
+    pub fn bytes(&self) -> Vec<u8> {
         let mut buf = Vec::new();
         ciborium::into_writer(&self, &mut buf).expect("serialization should have succeeded");
         buf
@@ -547,6 +547,18 @@ mod tests {
         let vec1: Vec<u64> = vec![];
         let data: Data = Data::from(&vec1);
         assert_eq!(format!("{:?}", data), "Data(Array([]))");
+    }
+
+    #[test]
+    fn data_bytes() {
+        let v = ("42u64", 42u64);
+        let data = Data::from(&v);
+        let value = Value::serialized(&v).expect("serialization should have succeeded");
+
+        let mut buf = Vec::new();
+        ciborium::into_writer(&value, &mut buf).expect("serialization should have succeeded");
+
+        assert_eq!(data.bytes(), buf);
     }
 
     #[test]
