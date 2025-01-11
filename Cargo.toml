@@ -64,6 +64,7 @@ sp1-primitives = { version = "3.4.0" }
 sp1-sdk = { version = "3.4.0" }
 sp1-verifier = { version = "3.4.0" }
 sp1-zkvm = { version = "3.4.0" }
+test-strategy = { version = "0.4.0" }
 
 [profile.test]
 lto = "off"

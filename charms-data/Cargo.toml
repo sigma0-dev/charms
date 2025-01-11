@@ -18,3 +18,4 @@ serde = { workspace = true, features = ["derive"] }
 postcard = { workspace = true, features = ["use-std"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
+test-strategy = { workspace = true }
