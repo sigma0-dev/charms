@@ -1,19 +1,20 @@
 use anyhow::{anyhow, ensure, Result};
 use ark_std::{
+    cmp::Ordering,
     collections::BTreeMap,
     format,
     string::{String, ToString},
     vec::Vec,
 };
 use ciborium::Value;
-use core::{convert::TryInto, fmt, fmt::Display};
+use core::{convert::TryInto, fmt};
 use serde::{
     de,
     de::{DeserializeOwned, SeqAccess, Visitor},
     ser::SerializeTuple,
     Deserialize, Deserializer, Serialize, Serializer,
 };
-use std::cmp::Ordering;
+pub mod util;
 
 #[macro_export]
 macro_rules! check {
@@ -78,7 +79,7 @@ impl UtxoId {
     }
 }
 
-impl Display for UtxoId {
+impl fmt::Display for UtxoId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.to_string_internal().fmt(f)
     }
@@ -152,7 +153,7 @@ pub struct App {
     pub vk: B32,
 }
 
-impl Display for App {
+impl fmt::Display for App {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}/{}/{}", self.tag, self.identity, self.vk)
     }
@@ -275,7 +276,7 @@ impl TxId {
     }
 }
 
-impl Display for TxId {
+impl fmt::Display for TxId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.to_string_internal().fmt(f)
     }
@@ -360,7 +361,7 @@ impl AsRef<[u8]> for B32 {
     }
 }
 
-impl Display for B32 {
+impl fmt::Display for B32 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         hex::encode(&self.0).fmt(f)
     }

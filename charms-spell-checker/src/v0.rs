@@ -1,15 +1,17 @@
 use crate::AppContractProof;
 use charms_data::{
-    nft_state_preserved, token_amounts_balanced, App, Data, Transaction, NFT, TOKEN,
+    nft_state_preserved, token_amounts_balanced, util, App, Data, Transaction, NFT, TOKEN,
 };
 use serde::{Deserialize, Serialize};
 use sp1_primitives::io::SP1PublicValues;
 use sp1_zkvm::lib::verify::verify_sp1_proof;
 
 fn to_public_values<T: Serialize>(t: &T) -> SP1PublicValues {
-    let mut pv = SP1PublicValues::new();
-    pv.write(t);
-    pv
+    SP1PublicValues::from(
+        util::write(t)
+            .expect("(app, tx, x) should serialize successfully")
+            .as_slice(),
+    )
 }
 
 #[derive(Serialize, Deserialize)]

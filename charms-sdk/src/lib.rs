@@ -5,11 +5,25 @@ pub use sp1_zkvm;
 macro_rules! main {
     ($path:path) => {
         fn main() {
-            use charms_sdk::data::{App, Data, Transaction};
-            let (app, tx, x, w): (App, Transaction, Data, Data) = charms_sdk::sp1_zkvm::io::read();
+            use charms_sdk::data::{util, App, Data, Transaction};
+
+            fn read_input() -> (App, Transaction, Data, Data) {
+                let buf = charms_sdk::sp1_zkvm::io::read_vec();
+                util::read(&buf[..])
+                    .expect("should deserialize (app, tx, x, w): (App, Transaction, Data, Data)")
+            }
+
+            fn commit(app: App, tx: Transaction, x: Data) {
+                let buf = util::write(&(app, tx, x))
+                    .expect("should serialize (app, tx, x): (App, Transaction, Data)");
+                charms_sdk::sp1_zkvm::io::commit_slice(&buf[..]);
+            }
+
+            let (app, tx, x, w): (App, Transaction, Data, Data) = read_input();
             assert!($path(&app, &tx, &x, &w));
-            charms_sdk::sp1_zkvm::io::commit(&(&app, &tx, &x));
+            commit(app, tx, x);
         }
+
         charms_sdk::sp1_zkvm::entrypoint!(main);
     };
 }

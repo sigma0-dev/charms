@@ -103,11 +103,11 @@ pub fn run(spell: PathBuf, path: Option<PathBuf>) -> Result<()> {
         app_present = true;
         let x = data_for_key(&public_inputs, k);
         let w = data_for_key(&private_inputs, k);
-        prover.run_app(&binary, app, &tx, &x, &w)?;
-        eprintln!("✅ satisfied app contract for: {}", app);
+        prover.run(&binary, app, &tx, &x, &w)?;
+        eprintln!("✅  satisfied app contract for: {}", app);
     }
     if !app_present {
-        eprintln!("⚠️ app not present for VK: {}", vk);
+        eprintln!("⚠️  app not present for VK: {}", vk);
     }
 
     Ok(())

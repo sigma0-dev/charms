@@ -1,5 +1,5 @@
 use anyhow::ensure;
-use charms_data::{App, Data, Transaction, B32};
+use charms_data::{util, App, Data, Transaction, B32};
 use sp1_sdk::{HashableKey, ProverClient, SP1Proof, SP1Stdin, SP1VerifyingKey};
 use std::{collections::BTreeMap, mem};
 
@@ -52,7 +52,7 @@ impl Prover {
             let mut app_stdin = SP1Stdin::new();
             let empty = Data::empty();
             let w = app_private_inputs.get(app).unwrap_or(&empty);
-            app_stdin.write(&(app, &tx, x, w));
+            app_stdin.write_vec(util::write(&(app, &tx, x, w))?);
             let app_proof = self.client.prove(pk, app_stdin).compressed().run()?;
 
             let SP1Proof::Compressed(compressed_proof) = app_proof.proof else {
@@ -66,7 +66,7 @@ impl Prover {
         Ok(())
     }
 
-    pub fn run_app(
+    pub fn run(
         &self,
         app_binary: &[u8],
         app: &App,
@@ -78,9 +78,9 @@ impl Prover {
         ensure!(app.vk == B32(app_vk(vk)), "app.vk mismatch");
 
         let mut app_stdin = SP1Stdin::new();
-        app_stdin.write(&(app, &tx, x, w));
-        let (mut committed_values, _report) = self.client.execute(app_binary, app_stdin).run()?;
-        let com: (App, Transaction, Data) = committed_values.read();
+        app_stdin.write_vec(util::write(&(app, tx, x, w))?);
+        let (committed_values, _report) = self.client.execute(app_binary, app_stdin).run()?;
+        let com: (App, Transaction, Data) = util::read(committed_values.to_vec().as_slice())?;
         ensure!(
             (&com.0, &com.1, &com.2) == (app, tx, x),
             "committed data mismatch"
