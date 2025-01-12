@@ -11,6 +11,7 @@ license.workspace = true
 anyhow = { workspace = true }
 ark-std = { version = "0.5.0" }
 ciborium = { workspace = true }
+ciborium-io = { workspace = true }
 hex = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 

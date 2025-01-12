@@ -1,5 +1,5 @@
 use crate::{v0::V0AppContractProof, AppContractProof, NormalizedSpell, SpellProverInput};
-use charms_data::App;
+use charms_data::{util, App};
 
 pub fn main() {
     // Read an input to the program.
@@ -7,7 +7,7 @@ pub fn main() {
 
     dbg!(input_vec.len());
 
-    let input: SpellProverInput = ciborium::from_reader(input_vec.as_slice()).unwrap();
+    let input: SpellProverInput = util::read(input_vec.as_slice()).unwrap();
 
     dbg!(&input);
 
@@ -16,7 +16,7 @@ pub fn main() {
     eprintln!("about to commit");
 
     // Commit to the public values of the program.
-    sp1_zkvm::io::commit(&output);
+    sp1_zkvm::io::commit_slice(util::write(&output).unwrap().as_slice());
 }
 
 pub fn run(input: SpellProverInput) -> (String, NormalizedSpell) {

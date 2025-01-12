@@ -12,7 +12,7 @@ use bitcoin::{
     hashes::Hash,
     Amount, FeeRate, Transaction,
 };
-use charms_data::{TxId, UtxoId, B32};
+use charms_data::{util, TxId, UtxoId, B32};
 use charms_spell_checker::NormalizedSpell;
 use std::{collections::BTreeMap, str::FromStr};
 
@@ -71,11 +71,8 @@ pub fn prove(
         SPELL_VK,
     )?;
 
-    // ciborium::into_writer(&(&norm_spell, &proof), std::io::stdout())?;
-
     // Serialize spell into CBOR
-    let mut spell_data = vec![];
-    ciborium::ser::into_writer(&(&norm_spell, &proof), &mut spell_data)?;
+    let spell_data = util::write(&(&norm_spell, &proof))?;
 
     // Parse funding UTXO
     let funding_utxo = crate::cli::tx::parse_outpoint(&funding_utxo_id)?;

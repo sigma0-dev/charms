@@ -1,6 +1,6 @@
 use crate::{app, SPELL_CHECKER_BINARY};
 use anyhow::{anyhow, ensure, Error};
-use charms_data::{App, Charms, Data, Transaction, UtxoId, B32};
+use charms_data::{util, App, Charms, Data, Transaction, UtxoId, B32};
 use charms_spell_checker::{
     NormalizedCharms, NormalizedSpell, NormalizedTransaction, Proof, SpellProverInput,
 };
@@ -284,11 +284,7 @@ pub fn prove(
             .filter_map(|((app, _), i)| (app_binaries.get(&app.vk).map(|_| i as usize)))
             .collect(),
     };
-    let input_vec: Vec<u8> = {
-        let mut buf = vec![];
-        ciborium::into_writer(&prover_input, &mut buf)?;
-        buf
-    };
+    let input_vec: Vec<u8> = util::write(&prover_input)?;
 
     dbg!(input_vec.len());
 
@@ -333,28 +329,11 @@ $TOAD: 9
         let utxo_id =
             UtxoId::from_str("f72700ac56bd4dd61f2ccb4acdf21d0b11bb294fc3efa9012b77903932197d2f:2")
                 .unwrap();
-        let mut buf = vec![];
-        ciborium::ser::into_writer(&utxo_id, &mut buf).unwrap();
+        let buf = util::write(&utxo_id).unwrap();
 
-        let utxo_id_value: Value = ciborium::de::from_reader(buf.as_slice()).unwrap();
+        let utxo_id_value: Value = util::read(buf.as_slice()).unwrap();
 
         let utxo_id: UtxoId = dbg!(utxo_id_value).deserialized().unwrap();
         dbg!(utxo_id);
-    }
-
-    #[test]
-    fn empty_postcard() {
-        use postcard;
-
-        let value: Vec<u8> = vec![];
-        let buf = postcard::to_stdvec(&value).unwrap();
-        dbg!(buf.len());
-        dbg!(buf);
-
-        let mut cbor_buf = vec![];
-        let value: Vec<u8> = vec![];
-        ciborium::into_writer(&value, &mut cbor_buf).unwrap();
-        dbg!(cbor_buf.len());
-        dbg!(cbor_buf);
     }
 }

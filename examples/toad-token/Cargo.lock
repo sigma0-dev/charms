@@ -61,6 +61,7 @@ dependencies = [
  "anyhow",
  "ark-std",
  "ciborium",
+ "ciborium-io",
  "hex",
  "serde",
 ]

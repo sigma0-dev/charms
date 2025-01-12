@@ -5,7 +5,7 @@ use bitcoin::{
     opcodes::all::{OP_ENDIF, OP_IF},
     script::{Instruction, PushBytes},
 };
-use charms_data::{TxId, UtxoId};
+use charms_data::{util, TxId, UtxoId};
 use serde::Serialize;
 use sp1_primitives::io::SP1PublicValues;
 use sp1_verifier::Groth16Verifier;
@@ -51,7 +51,7 @@ pub fn extract_spell(
         }
     }
 
-    let (spell, proof): (NormalizedSpell, Proof) = ciborium::de::from_reader(spell_data.as_slice())
+    let (spell, proof): (NormalizedSpell, Proof) = util::read(spell_data.as_slice())
         .map_err(|e| anyhow!("could not parse spell and proof: {}", e))?;
 
     ensure!(

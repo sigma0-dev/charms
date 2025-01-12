@@ -1,12 +1,21 @@
 use anyhow::Result;
+use ciborium_io::Read;
+use core::fmt::Debug;
 use serde::{de::DeserializeOwned, Serialize};
 
-pub fn read<T: DeserializeOwned>(s: &[u8]) -> Result<T> {
-    let v = ciborium::from_reader(s)?;
-    Ok(v)
+pub fn read<T, R>(s: R) -> Result<T>
+where
+    T: DeserializeOwned,
+    R: Read,
+    R::Error: Debug + Send + Sync + 'static,
+{
+    Ok(ciborium::from_reader(s)?)
 }
 
-pub fn write<T: Serialize>(t: &T) -> Result<Vec<u8>> {
+pub fn write<T>(t: &T) -> Result<Vec<u8>>
+where
+    T: Serialize,
+{
     let mut buf = vec![];
     ciborium::into_writer(t, &mut buf)?;
     Ok(buf)

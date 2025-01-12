@@ -4,6 +4,7 @@ use bitcoin::{
     consensus::encode::{deserialize_hex, serialize_hex},
     Amount, FeeRate, OutPoint, Transaction,
 };
+use charms_data::util;
 use charms_spell_checker::{NormalizedSpell, Proof};
 use std::str::FromStr;
 
@@ -29,11 +30,10 @@ pub fn tx_add_spell(command: TxCommands) -> Result<()> {
     };
 
     // Read spell data from stdin
-    let spell_and_proof: (NormalizedSpell, Proof) = ciborium::de::from_reader(std::io::stdin())?;
+    let spell_and_proof: (NormalizedSpell, Proof) = util::read(std::io::stdin())?;
 
     // Serialize spell into CBOR
-    let mut spell_data = vec![];
-    ciborium::ser::into_writer(&spell_and_proof, &mut spell_data)?;
+    let spell_data = util::write(&spell_and_proof)?;
 
     // Parse transaction from hex
     let tx = deserialize_hex::<Transaction>(&tx)?;

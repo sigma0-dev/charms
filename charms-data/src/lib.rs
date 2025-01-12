@@ -402,9 +402,7 @@ impl Data {
     }
 
     pub fn bytes(&self) -> Vec<u8> {
-        let mut buf = Vec::new();
-        ciborium::into_writer(&self, &mut buf).expect("serialization should have succeeded");
-        buf
+        util::write(&self).expect("serialization should have succeeded")
     }
 }
 
@@ -413,7 +411,7 @@ where
     T: Serialize,
 {
     fn from(value: &T) -> Self {
-        Self(Value::serialized(value).expect("serialization should have succeeded"))
+        Self(Value::serialized(value).expect("casting to a CBOR Value should have succeeded"))
     }
 }
 
@@ -556,8 +554,7 @@ mod tests {
         let data = Data::from(&v);
         let value = Value::serialized(&v).expect("serialization should have succeeded");
 
-        let mut buf = Vec::new();
-        ciborium::into_writer(&value, &mut buf).expect("serialization should have succeeded");
+        let buf = util::write(&value).expect("serialization should have succeeded");
 
         assert_eq!(data.bytes(), buf);
     }
