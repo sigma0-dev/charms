@@ -8,5 +8,5 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-charms-data = { path = "../charms-data", version = "0.2.0" }
+charms-data = { path = "../charms-data", version = "0.3.0-dev" }
 sp1-zkvm = { workspace = true }
