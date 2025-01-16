@@ -1,15 +1,18 @@
+pub mod app;
 pub mod bin;
 pub mod tx;
-pub mod v0;
 
-use crate::tx::extract_spell;
+use crate::{app::AppContractVK, tx::extract_spell};
 use bitcoin::hashes::Hash;
 use charms_data::{App, Charms, Data, Transaction, TxId, UtxoId};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const V0: u32 = 0u32;
-pub const CURRENT_VERSION: u32 = V0;
+pub const V0_SPELL_VK: &str = "0x00e9398ac819e6dd281f81db3ada3fe5159c3cc40222b5ddb0e7584ed2327c5d";
+
+pub const V1: u32 = 1u32;
+pub const CURRENT_VERSION: u32 = V1;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpellProverInput {
@@ -138,7 +141,7 @@ impl NormalizedSpell {
     pub fn is_correct(
         &self,
         prev_txs: &Vec<bitcoin::Transaction>,
-        app_contract_proofs: &Vec<(App, Box<dyn AppContractProof>)>,
+        app_contract_vks: &Vec<(App, AppContractVK)>,
         spell_vk: &String,
     ) -> bool {
         let prev_spells = prev_spells(prev_txs, spell_vk);
@@ -155,13 +158,13 @@ impl NormalizedSpell {
         }
 
         let apps = self.apps();
-        if apps.len() != app_contract_proofs.len() {
+        if apps.len() != app_contract_vks.len() {
             eprintln!("apps.len() != app_contract_proofs.len()");
             return false;
         }
         if !apps
             .iter()
-            .zip(app_contract_proofs)
+            .zip(app_contract_vks)
             .all(|(app0, (app, proof))| {
                 app == app0
                     && proof.verify(app, &self.to_tx(&prev_spells), &self.app_public_inputs[app])
@@ -205,16 +208,6 @@ pub fn prev_spells(
             )
         })
         .collect()
-}
-
-pub trait SpellProof {
-    /// Verify the proof that the spell is correct.
-    fn verify(&self, n_spell: &NormalizedSpell) -> bool;
-}
-
-pub trait AppContractProof {
-    /// Verify the proof that the app contract is satisfied by the transaction and public input.
-    fn verify(&self, app: &App, tx: &Transaction, x: &Data) -> bool;
 }
 
 #[cfg(test)]

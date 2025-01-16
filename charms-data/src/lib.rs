@@ -496,32 +496,28 @@ mod tests {
     #[proptest]
     fn vk_serde_roundtrip(vk: B32) {
         let bytes = util::write(&vk).unwrap();
-        let deserialize_result = util::read::<B32>(&bytes);
-        let vk2 = deserialize_result.unwrap();
+        let vk2 = util::read(bytes.as_slice()).unwrap();
         prop_assert_eq!(vk, vk2);
     }
 
     #[proptest]
     fn app_serde_roundtrip(app: App) {
         let bytes = util::write(&app).unwrap();
-        let deserialize_result = util::read::<App>(&bytes);
-        let app2 = deserialize_result.unwrap();
+        let app2 = util::read(bytes.as_slice()).unwrap();
         prop_assert_eq!(app, app2);
     }
 
     #[proptest]
     fn utxo_id_serde_roundtrip(utxo_id: UtxoId) {
         let bytes = util::write(&utxo_id).unwrap();
-        let deserialize_result = util::read::<UtxoId>(&bytes);
-        let utxo_id2 = deserialize_result.unwrap();
+        let utxo_id2 = util::read(bytes.as_slice()).unwrap();
         prop_assert_eq!(utxo_id, utxo_id2);
     }
 
     #[proptest]
     fn tx_id_serde_roundtrip(tx_id: TxId) {
         let bytes = util::write(&tx_id).unwrap();
-        let deserialize_result = util::read::<TxId>(&bytes);
-        let tx_id2 = deserialize_result.unwrap();
+        let tx_id2 = util::read(bytes.as_slice()).unwrap();
         prop_assert_eq!(tx_id, tx_id2);
     }
 

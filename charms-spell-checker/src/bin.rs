@@ -1,4 +1,4 @@
-use crate::{v0::V0AppContractProof, AppContractProof, NormalizedSpell, SpellProverInput};
+use crate::{app::AppContractVK, NormalizedSpell, SpellProverInput};
 use charms_data::{util, App};
 
 pub fn main() {
@@ -32,7 +32,7 @@ pub fn run(input: SpellProverInput) -> (String, NormalizedSpell) {
         .iter()
         .zip(0..)
         .map(|((app, _), i)| {
-            let app_contract_proof = to_app_contract_proof(app, app_contract_proofs.contains(&i));
+            let app_contract_proof = to_app_contract_vk(app, app_contract_proofs.contains(&i));
             (app.clone(), app_contract_proof)
         })
         .collect();
@@ -46,20 +46,20 @@ pub fn run(input: SpellProverInput) -> (String, NormalizedSpell) {
 }
 
 /// Get app contract VK and proof for the given app.
-fn to_app_contract_proof(app: &App, has_proof: bool) -> Box<dyn AppContractProof> {
+fn to_app_contract_vk(app: &App, has_proof: bool) -> AppContractVK {
     // It only makes sense for the **current version** of spell prover, so we don't need to pass
     // version.
     let app_contract_proof = match has_proof {
-        false => V0AppContractProof { vk: None },
+        false => AppContractVK { vk: None },
         true => {
             let vk: [u32; 8] = unsafe {
-                let vk: [u8; 32] = app.vk.0; // app.vk_hash is the VK of the app contract in V0
+                let vk: [u8; 32] = app.vk.0;
                 std::mem::transmute(vk)
             };
-            V0AppContractProof { vk: Some(vk) }
+            AppContractVK { vk: Some(vk) }
         }
     };
-    Box::new(app_contract_proof)
+    app_contract_proof
 }
 
 #[cfg(test)]

@@ -1,10 +1,11 @@
 use anyhow::ensure;
 use charms_data::{util, App, Data, Transaction, B32};
-use sp1_sdk::{HashableKey, ProverClient, SP1Proof, SP1Stdin, SP1VerifyingKey};
+use sp1_prover::components::CpuProverComponents;
+use sp1_sdk::{HashableKey, ProverClient, SP1Proof, SP1ProofMode, SP1Stdin, SP1VerifyingKey};
 use std::{collections::BTreeMap, mem};
 
 pub struct Prover {
-    pub client: ProverClient,
+    pub client: Box<dyn sp1_sdk::Prover<CpuProverComponents>>,
 }
 
 impl Prover {
@@ -24,7 +25,7 @@ fn app_vk(sp1_vk: SP1VerifyingKey) -> [u8; 32] {
 impl Prover {
     pub fn new() -> Self {
         Self {
-            client: ProverClient::local(),
+            client: Box::new(ProverClient::builder().cpu().build()),
         }
     }
 
@@ -53,7 +54,9 @@ impl Prover {
             let empty = Data::empty();
             let w = app_private_inputs.get(app).unwrap_or(&empty);
             app_stdin.write_vec(util::write(&(app, &tx, x, w))?);
-            let app_proof = self.client.prove(pk, app_stdin).compressed().run()?;
+            let app_proof = self
+                .client
+                .prove(pk, &app_stdin, SP1ProofMode::Compressed)?;
 
             let SP1Proof::Compressed(compressed_proof) = app_proof.proof else {
                 unreachable!()
@@ -79,7 +82,7 @@ impl Prover {
 
         let mut app_stdin = SP1Stdin::new();
         app_stdin.write_vec(util::write(&(app, tx, x, w))?);
-        let (committed_values, _report) = self.client.execute(app_binary, app_stdin).run()?;
+        let (committed_values, _report) = self.client.execute(app_binary, &app_stdin)?;
         let com: (App, Transaction, Data) = util::read(committed_values.to_vec().as_slice())?;
         ensure!(
             (&com.0, &com.1, &com.2) == (app, tx, x),

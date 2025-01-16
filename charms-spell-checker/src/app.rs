@@ -1,4 +1,3 @@
-use crate::AppContractProof;
 use charms_data::{
     nft_state_preserved, token_amounts_balanced, util, App, Data, Transaction, NFT, TOKEN,
 };
@@ -15,12 +14,12 @@ fn to_public_values<T: Serialize>(t: &T) -> SP1PublicValues {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct V0AppContractProof {
+pub struct AppContractVK {
     pub vk: Option<[u32; 8]>,
 }
 
-impl AppContractProof for V0AppContractProof {
-    fn verify(&self, app: &App, tx: &Transaction, x: &Data) -> bool {
+impl AppContractVK {
+    pub fn verify(&self, app: &App, tx: &Transaction, x: &Data) -> bool {
         match &self.vk {
             Some(vk) => {
                 let Ok(pv) = to_public_values(&(app, tx, x)).hash().try_into() else {

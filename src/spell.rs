@@ -280,7 +280,7 @@ pub fn prove(
     prev_txs: Vec<bitcoin::Transaction>,
     spell_vk: &str,
 ) -> anyhow::Result<(NormalizedSpell, Proof)> {
-    let client = ProverClient::new();
+    let client = ProverClient::from_env();
     let (pk, vk) = client.setup(SPELL_CHECKER_BINARY);
     let mut stdin = SP1Stdin::new();
 
@@ -314,7 +314,7 @@ pub fn prove(
         &mut stdin,
     )?;
 
-    let proof = client.prove(&pk, stdin).groth16().run()?;
+    let proof = client.prove(&pk, &stdin).groth16().run()?;
     let proof = proof.bytes().into_boxed_slice();
 
     let mut norm_spell = norm_spell;

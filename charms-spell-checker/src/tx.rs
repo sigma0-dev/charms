@@ -1,4 +1,4 @@
-use crate::{NormalizedSpell, Proof};
+use crate::{NormalizedSpell, Proof, CURRENT_VERSION, V0, V0_SPELL_VK};
 use anyhow::{anyhow, bail, ensure, Error};
 use bitcoin::{
     hashes::Hash,
@@ -74,16 +74,28 @@ pub fn extract_spell(
     let mut spell = spell;
     spell.tx.ins = Some(tx_ins);
 
+    let (spell_vk, groth16_vk) = vks(spell.version, spell_vk)?;
+
     Groth16Verifier::verify(
         &proof,
         to_sp1_pv(&(spell_vk, &spell)).as_slice(),
         spell_vk,
-        *sp1_verifier::GROTH16_VK_BYTES,
+        groth16_vk,
     )
     .map_err(|e| anyhow!("could not verify spell proof: {}", e))?;
 
     Ok((spell, proof))
 }
+
+fn vks(spell_version: u32, spell_vk: &str) -> anyhow::Result<(&str, &[u8])> {
+    match spell_version {
+        CURRENT_VERSION => Ok((spell_vk, *sp1_verifier::GROTH16_VK_BYTES)),
+        V0 => Ok((V0_SPELL_VK, V0_GROTH16_VK_BYTES)),
+        _ => bail!("unsupported spell version: {}", spell_version),
+    }
+}
+
+const V0_GROTH16_VK_BYTES: &'static [u8] = include_bytes!("../vk/v0/groth16_vk.bin");
 
 fn to_sp1_pv<T: Serialize>(t: &T) -> SP1PublicValues {
     let mut pv = SP1PublicValues::new();

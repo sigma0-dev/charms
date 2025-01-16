@@ -28,10 +28,11 @@ rand = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
+sp1-prover = { workspace = true }
 sp1-sdk = { workspace = true }
 tokio = { version = "1.43", features = ["full"] }
 tracing = { version = "0.1" }
-tracing-forest = { version = "0.1.0" }
+tracing-forest = { version = "0.1.6" }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [dev-dependencies]
@@ -60,10 +61,11 @@ rand = { version = "0.8.5" }
 serde = { version = "1.0" }
 serde_json = { version = "1.0.135" }
 serde_yaml = { version = "0.9.34" }
-sp1-primitives = { version = "3.4.0" }
-sp1-sdk = { version = "3.4.0" }
-sp1-verifier = { version = "3.4.0" }
-sp1-zkvm = { version = "3.4.0" }
+sp1-primitives = { version = "4.0.1" }
+sp1-prover = { version = "4.0.1" }
+sp1-sdk = { version = "4.0.1" }
+sp1-verifier = { version = "4.0.1" }
+sp1-zkvm = { version = "4.0.1" }
 test-strategy = { version = "0.4.0" }
 
 [profile.test]
@@ -76,4 +78,5 @@ opt-level = 3
 strip = "symbols"
 
 [patch.crates-io]
-secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", tag = "secp256k1-v0.29.1-patch-v1" }
+secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", tag = "patch-0.29.1-sp1-4.0.0" }
+ecdsa-core = { git = "https://github.com/sp1-patches/signatures", package = "ecdsa", tag = "patch-0.16.9-sp1-4.0.0" }
