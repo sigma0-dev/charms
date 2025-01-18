@@ -7,7 +7,7 @@ pub mod utils;
 
 pub const SPELL_CHECKER_BINARY: &[u8] = include_bytes!("./bin/charms-spell-checker");
 
-pub const SPELL_VK: &str = "0x002dbf1e0699aa5a906abc6c16b25dffdc573a03ebd65acf9cbc70a9311e9ddd";
+pub const SPELL_VK: &str = "0x0061d4c45041155bfb34ee39a01d47e21cc56baf69e4be25f1320d36eb19ff6c";
 
 #[cfg(test)]
 mod test {
