@@ -9,7 +9,7 @@ edition.workspace = true
 license.workspace = true
 
 [workspace.package]
-version = "0.3.0-dev"
+version = "0.3.0"
 edition = "2021"
 authors = ["Ivan Mikushin <ivan@sigmazero.dev>"]
 license = "MIT"
@@ -19,8 +19,8 @@ anyhow = { workspace = true }
 axum = { version = "0.8.1" }
 bitcoin = { workspace = true, features = ["rand", "rand-std"] }
 bitcoincore-rpc = { version = "0.19.0" }
-charms-data = { path = "./charms-data", version = "0.3.0-dev" }
-charms-spell-checker = { path = "charms-spell-checker", version = "0.3.0-dev" }
+charms-data = { path = "./charms-data", version = "0.3.0" }
+charms-spell-checker = { path = "charms-spell-checker", version = "0.3.0" }
 ciborium = { workspace = true }
 clap = { version = "4.5.26", features = ["derive"] }
 hex = { workspace = true }
@@ -75,7 +75,7 @@ opt-level = 3
 [profile.release]
 lto = "fat"
 opt-level = 3
-strip = "symbols"
+strip = "debuginfo"
 
 [patch.crates-io]
 secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", tag = "patch-0.29.1-sp1-4.0.0" }
