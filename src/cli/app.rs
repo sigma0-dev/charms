@@ -29,7 +29,7 @@ pub fn new(name: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn build() -> Result<()> {
+fn do_build() -> Result<String> {
     if !Command::new("which")
         .args(&["cargo-prove"])
         .env(
@@ -46,6 +46,7 @@ pub fn build() -> Result<()> {
             .stdout(Stdio::null())
             .status()?;
         Command::new(format!("{}/.sp1/bin/sp1up", env::var("HOME")?))
+            .args(&["-v", "4.0.1"])
             .stdout(Stdio::null())
             .status()?;
     }
@@ -54,13 +55,25 @@ pub fn build() -> Result<()> {
             "PATH",
             format!("{}:{}/.sp1/bin", env::var("PATH")?, env::var("HOME")?),
         )
-        .args(&["prove", "build"])
+        .args(&[
+            "prove",
+            "build",
+            "--locked",
+            "--output-directory=./target",
+            "--elf-name=charms-app",
+        ])
         .stdout(Stdio::piped())
         .spawn()?;
     let stdout = child.stdout.take().expect("Failed to open stdout");
     io::copy(&mut io::BufReader::new(stdout), &mut io::stderr())?;
     let status = child.wait()?;
     ensure!(status.success());
+    Ok("./target/charms-app".to_string())
+}
+
+pub fn build() -> Result<()> {
+    let bin_path = do_build()?;
+    println!("{}", bin_path);
     Ok(())
 }
 
@@ -68,8 +81,8 @@ pub fn vk(path: Option<PathBuf>) -> Result<()> {
     let binary = match path {
         Some(path) => fs::read(path)?,
         None => {
-            build()?;
-            fs::read("./elf/riscv32im-succinct-zkvm-elf")?
+            let bin_path = do_build()?;
+            fs::read(bin_path)?
         }
     };
     let prover = app::Prover::new();
@@ -83,8 +96,8 @@ pub fn run(spell: PathBuf, path: Option<PathBuf>) -> Result<()> {
     let binary = match path {
         Some(path) => fs::read(path)?,
         None => {
-            build()?;
-            fs::read("./elf/riscv32im-succinct-zkvm-elf")?
+            let bin_path = do_build()?;
+            fs::read(bin_path)?
         }
     };
     let prover = app::Prover::new();
