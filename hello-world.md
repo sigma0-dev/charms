@@ -52,7 +52,7 @@ brew install jq
 Install Charms CLI:
 
 ```sh
-CARGO_TARGET_DIR=$(mktemp -d)/target
+export CARGO_TARGET_DIR=$(mktemp -d)/target
 cargo install --profile=test --locked --bin charms --version=0.3.0-dev charms
 ```
 
