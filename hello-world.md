@@ -52,6 +52,7 @@ brew install jq
 Install Charms CLI:
 
 ```sh
+## important to have this path end with `/target`, otherwise the build will fail (a dependency issue)
 export CARGO_TARGET_DIR=$(mktemp -d)/target
 cargo install --profile=test --locked --bin charms --version=0.3.0-dev charms
 ```
