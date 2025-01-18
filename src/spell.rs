@@ -4,6 +4,7 @@ use bitcoin::{address::NetworkUnchecked, Address};
 use charms_data::{util, App, Charms, Data, Transaction, UtxoId, B32};
 use charms_spell_checker::{
     NormalizedCharms, NormalizedSpell, NormalizedTransaction, Proof, SpellProverInput,
+    CURRENT_VERSION,
 };
 use ciborium::Value;
 use serde::{Deserialize, Serialize};
@@ -56,7 +57,7 @@ pub struct Spell {
 impl Spell {
     pub fn new() -> Self {
         Self {
-            version: 0,
+            version: CURRENT_VERSION,
             apps: BTreeMap::new(),
             public_inputs: None,
             private_inputs: None,
