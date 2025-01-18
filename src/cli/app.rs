@@ -26,7 +26,6 @@ pub fn new(name: &str) -> Result<()> {
         .args(&[
             "generate",
             "--git=https://github.com/sigma0-dev/charms-app",
-            "--branch=charms-v0.3",
             "--name",
             name,
         ])
