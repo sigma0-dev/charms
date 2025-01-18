@@ -4,19 +4,14 @@ use charms_data::{util, App};
 pub fn main() {
     // Read an input to the program.
     let input_vec = sp1_zkvm::io::read_vec();
-
-    dbg!(input_vec.len());
-
     let input: SpellProverInput = util::read(input_vec.as_slice()).unwrap();
-
-    dbg!(&input);
 
     let output = run(input);
 
     eprintln!("about to commit");
 
     // Commit to the public values of the program.
-    sp1_zkvm::io::commit_slice(util::write(&output).unwrap().as_slice());
+    sp1_zkvm::io::commit(&output);
 }
 
 pub fn run(input: SpellProverInput) -> (String, NormalizedSpell) {
