@@ -52,7 +52,9 @@ brew install jq
 Install Charms CLI:
 
 ```sh
-cargo install charms
+git clone https://github.com/sigma0-dev/charms.git
+cd charms
+cargo install --profile=test --path . --locked --bin charms
 ```
 
 ## Create an app
