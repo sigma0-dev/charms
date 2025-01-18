@@ -23,7 +23,13 @@ pub fn new(name: &str) -> Result<()> {
             .status()?;
     }
     let status = Command::new("cargo")
-        .args(&["generate", "sigma0-dev/charms-app", "--name", name])
+        .args(&[
+            "generate",
+            "--git=https://github.com/sigma0-dev/charms-app",
+            "--branch=charms-v0.3",
+            "--name",
+            name,
+        ])
         .status()?;
     ensure!(status.success());
     Ok(())
