@@ -99,6 +99,11 @@ We've just tested the app with an NFT-minting spell. Let's use it on Bitcoin `te
 
 ```sh
 app_bins=$(charms app build)
+
+# pick from the output of `bitcoin-cli listunspent`
+# should NOT be the same as the one you used for minting the NFT
+funding_utxo_id="8c1d638a7ff6b6a977580beec47fcc9b8a93e44893c27ab69935c14e9316a735:1"
+
 cat ./spells/mint-nft.yaml | envsubst | charms wallet cast --app-bins=${app_bins} --funding-utxo-id=${funding_utxo_id}
 ```
 
