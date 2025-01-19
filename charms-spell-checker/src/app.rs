@@ -14,12 +14,12 @@ fn to_public_values<T: Serialize>(t: &T) -> SP1PublicValues {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct AppContractVK {
+pub(crate) struct AppContractVK {
     pub vk: Option<[u32; 8]>,
 }
 
 impl AppContractVK {
-    pub fn verify(&self, app: &App, tx: &Transaction, x: &Data) -> bool {
+    pub(crate) fn verify(&self, app: &App, tx: &Transaction, x: &Data) -> bool {
         match &self.vk {
             Some(vk) => {
                 let Ok(pv) = to_public_values(&(app, tx, x)).hash().try_into() else {

@@ -21,15 +21,15 @@ use rand::thread_rng;
 use std::collections::BTreeMap;
 
 /// `add_spell` adds `spell` to `tx`:
-/// 1. it builds `commit_spell_tx` transaction which creates a *committed spell* Tapscript output
+/// 1. it builds `commit_tx` transaction which creates a *committed spell* Tapscript output
 /// 2. then appends an input spending the *committed spell* to `tx`, and adds a witness for it.
 ///
 /// `fee_rate` is used to compute the amount of sats necessary to fund the commit and spell
 /// transactions.
 ///
-/// Return `[commit_spell_tx, tx]`.
+/// Return `[commit_tx, tx]`.
 ///
-/// Both `commit_spell_tx` and `tx` need to be signed.
+/// Both `commit_tx` and `tx` need to be signed.
 pub fn add_spell(
     tx: Transaction,
     spell_data: &[u8],

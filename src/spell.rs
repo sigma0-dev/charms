@@ -1,4 +1,4 @@
-use crate::{app, SPELL_CHECKER_BINARY};
+use crate::{app, utils, SPELL_CHECKER_BINARY, SPELL_VK};
 use anyhow::{anyhow, ensure, Error};
 use bitcoin::{address::NetworkUnchecked, Address};
 use charms_data::{util, App, Charms, Data, Transaction, UtxoId, B32};
@@ -33,27 +33,36 @@ pub struct Output {
     pub charms: Option<KeyedCharms>,
 }
 
-/// Defines how spells are represented on the wire,
+/// Defines how spells are represented in their source form and in CLI outputs,
 /// in both human-friendly (JSON/YAML) and machine-friendly (CBOR) formats.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Spell {
+    /// Version of the protocol.
     pub version: u32,
 
+    /// Apps used in the spell. Map of `$KEY: App`.
+    /// Keys are arbitrary strings. They just need to be unique (inside the spell).
     pub apps: BTreeMap<String, App>,
 
+    /// Public inputs to the apps for this spell. Map of `$KEY: Data`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub public_inputs: Option<BTreeMap<String, Data>>,
 
+    /// Private inputs to the apps for this spell. Map of `$KEY: Data`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub private_inputs: Option<BTreeMap<String, Data>>,
 
+    /// Transaction inputs.
     pub ins: Vec<Input>,
+    /// Reference inputs.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub refs: Option<Vec<Input>>,
+    /// Transaction outputs.
     pub outs: Vec<Output>,
 }
 
 impl Spell {
+    /// New empty spell.
     pub fn new() -> Self {
         Self {
             version: CURRENT_VERSION,
@@ -66,6 +75,7 @@ impl Spell {
         }
     }
 
+    /// Get a [`charms_data::Transaction`] for the spell.
     pub fn to_tx(&self) -> anyhow::Result<Transaction> {
         let ins = self.strings_of_charms(&self.ins)?;
         let empty_vec = vec![];
@@ -105,6 +115,7 @@ impl Spell {
             .collect::<Result<Charms, _>>()
     }
 
+    /// Get a [`NormalizedSpell`] and apps' private inputs for the spell.
     pub fn normalized(&self) -> anyhow::Result<(NormalizedSpell, BTreeMap<App, Data>)> {
         let empty_map = BTreeMap::new();
         let keyed_public_inputs = self.public_inputs.as_ref().unwrap_or(&empty_map);
@@ -170,10 +181,11 @@ impl Spell {
         Ok((norm_spell, app_private_inputs))
     }
 
+    /// De-normalize a normalized spell.
     pub fn denormalized(norm_spell: &NormalizedSpell) -> Self {
         let apps = (0..)
             .zip(norm_spell.app_public_inputs.keys())
-            .map(|(i, app)| (str_index(&i), app.clone()))
+            .map(|(i, app)| (utils::str_index(&i), app.clone()))
             .collect();
 
         let public_inputs = match (0..)
@@ -181,7 +193,7 @@ impl Spell {
             .filter_map(|(i, data)| match data {
                 data if data.is_empty() => None,
                 data => Some((
-                    str_index(&i),
+                    utils::str_index(&i),
                     data.value().ok().expect("Data should be a Value"),
                 )),
             })
@@ -227,7 +239,7 @@ impl Spell {
                     .iter()
                     .map(|(i, data)| {
                         (
-                            str_index(i),
+                            utils::str_index(i),
                             data.value().ok().expect("Data should be a Value"),
                         )
                     })
@@ -251,10 +263,6 @@ impl Spell {
     }
 }
 
-pub fn str_index(i: &usize) -> String {
-    format!("${:04}", i)
-}
-
 fn app_inputs(
     keyed_apps: &BTreeMap<String, App>,
     keyed_inputs: &BTreeMap<String, Data>,
@@ -270,18 +278,23 @@ fn app_inputs(
         .collect()
 }
 
+/// Prove a spell (provided as [`NormalizedSpell`]).
+/// Returns the normalized spell and the proof (which is a Groth16 proof of checking if the spell is
+/// correct inside a zkVM).
+///
+/// Requires the binaries of the apps used in the spell, the private inputs to the apps, and the
+/// pre-requisite transactions (`prev_txs`).
 pub fn prove(
     norm_spell: NormalizedSpell,
     app_binaries: &BTreeMap<B32, Vec<u8>>,
     app_private_inputs: BTreeMap<App, Data>,
     prev_txs: Vec<bitcoin::Transaction>,
-    spell_vk: &str,
 ) -> anyhow::Result<(NormalizedSpell, Proof)> {
     let client = ProverClient::from_env();
     let (pk, vk) = client.setup(SPELL_CHECKER_BINARY);
     let mut stdin = SP1Stdin::new();
 
-    let prev_spells = charms_spell_checker::prev_spells(&prev_txs, spell_vk);
+    let prev_spells = charms_spell_checker::prev_spells(&prev_txs, SPELL_VK);
 
     let prover_input = SpellProverInput {
         self_spell_vk: vk.bytes32(),

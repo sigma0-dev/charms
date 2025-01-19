@@ -10,6 +10,8 @@ use serde::Serialize;
 use sp1_primitives::io::SP1PublicValues;
 use sp1_verifier::Groth16Verifier;
 
+/// Extract a [`NormalizedSpell`] from a transaction and verify it.
+/// Incorrect spells are rejected.
 pub fn extract_spell(
     tx: &bitcoin::Transaction,
     spell_vk: &str,
@@ -78,7 +80,7 @@ pub fn extract_spell(
 
     Groth16Verifier::verify(
         &proof,
-        to_sp1_pv(&(spell_vk, &spell)).as_slice(),
+        to_sp1_pv(spell.version, &(spell_vk, &spell)).as_slice(),
         spell_vk,
         groth16_vk,
     )
@@ -97,8 +99,19 @@ fn vks(spell_version: u32, spell_vk: &str) -> anyhow::Result<(&str, &[u8])> {
 
 const V0_GROTH16_VK_BYTES: &'static [u8] = include_bytes!("../vk/v0/groth16_vk.bin");
 
-fn to_sp1_pv<T: Serialize>(t: &T) -> SP1PublicValues {
+fn to_sp1_pv<T: Serialize>(spell_version: u32, t: &T) -> SP1PublicValues {
     let mut pv = SP1PublicValues::new();
-    pv.write_slice(util::write(t).unwrap().as_slice());
+    match spell_version {
+        CURRENT_VERSION => {
+            // we commit to CBOR-encoded tuple `(spell_vk, n_spell)`
+            pv.write_slice(util::write(t).unwrap().as_slice());
+        }
+        V0 => {
+            // we used to commit to the tuple `(spell_vk, n_spell)`, which was serialized internally
+            // by SP1
+            pv.write(t);
+        }
+        _ => unreachable!(),
+    }
     pv
 }

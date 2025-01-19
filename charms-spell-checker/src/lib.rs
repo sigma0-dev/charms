@@ -8,10 +8,14 @@ use charms_data::{App, Charms, Data, Transaction, TxId, UtxoId};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+/// Version `0` of the protocol.
 pub const V0: u32 = 0u32;
+/// Verification key for version `0` of the `charms-spell-checker` binary.
 pub const V0_SPELL_VK: &str = "0x00e9398ac819e6dd281f81db3ada3fe5159c3cc40222b5ddb0e7584ed2327c5d";
 
+/// Version `1` of the protocol.
 pub const V1: u32 = 1u32;
+/// Current version of the protocol.
 pub const CURRENT_VERSION: u32 = V1;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -23,8 +27,11 @@ pub struct SpellProverInput {
     pub app_contract_proofs: BTreeSet<usize>, // proofs are provided in input stream data
 }
 
+/// Maps the index of the charm's app (in [`NormalizedSpell`].`app_public_inputs`) to the charm's
+/// data.
 pub type NormalizedCharms = BTreeMap<usize, Data>;
 
+/// Normalized representation of a Charms transaction.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct NormalizedTransaction {
     /// (Optional) input UTXO list. Is None when serialized in the transaction: the transaction
@@ -42,6 +49,7 @@ pub struct NormalizedTransaction {
 }
 
 impl NormalizedTransaction {
+    /// Return a sorted set of transaction IDs of the inputs.
     pub fn prev_txids(&self) -> Option<BTreeSet<&TxId>> {
         self.ins
             .as_ref()
@@ -49,18 +57,23 @@ impl NormalizedTransaction {
     }
 }
 
+/// Proof of correctness of a spell.
 pub type Proof = Box<[u8]>;
 
+/// Normalized representation of a spell.
 /// Can be committed as public input.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct NormalizedSpell {
+    /// Protocol version.
     pub version: u32,
+    /// Transaction data.
     pub tx: NormalizedTransaction,
-    /// Maps all `App`s in the transaction to (potentially empty) data.
+    /// Maps all `App`s in the transaction to (potentially empty) public input data.
     pub app_public_inputs: BTreeMap<App, Data>,
 }
 
 impl NormalizedSpell {
+    /// Check if the spell is well-formed.
     pub fn well_formed(
         &self,
         prev_spells: &BTreeMap<TxId, (Option<NormalizedSpell>, usize)>,
@@ -102,10 +115,12 @@ impl NormalizedSpell {
         true
     }
 
+    /// Return the list of apps in the spell.
     pub fn apps(&self) -> Vec<App> {
         self.app_public_inputs.keys().cloned().collect()
     }
 
+    /// Convert normalized spell to [`charms_data::Transaction`].
     pub fn to_tx(
         &self,
         prev_spells: &BTreeMap<TxId, (Option<NormalizedSpell>, usize)>,
@@ -138,7 +153,8 @@ impl NormalizedSpell {
         }
     }
 
-    pub fn is_correct(
+    /// Check if the spell is correct.
+    pub(crate) fn is_correct(
         &self,
         prev_txs: &Vec<bitcoin::Transaction>,
         app_contract_vks: &Vec<(App, AppContractVK)>,
@@ -177,7 +193,8 @@ impl NormalizedSpell {
         true
     }
 
-    fn charms(&self, n_charms: &NormalizedCharms) -> Charms {
+    /// Return [`charms_data::Charms`] for the given [`NormalizedCharms`].
+    pub fn charms(&self, n_charms: &NormalizedCharms) -> Charms {
         let apps = self.apps();
         n_charms
             .iter()
@@ -186,6 +203,7 @@ impl NormalizedSpell {
     }
 }
 
+/// Extract spells from previous transactions.
 pub fn prev_spells(
     prev_txs: &Vec<bitcoin::Transaction>,
     spell_vk: &str,

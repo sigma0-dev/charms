@@ -11,10 +11,11 @@ pub fn main() {
     eprintln!("about to commit");
 
     // Commit to the public values of the program.
-    sp1_zkvm::io::commit_slice(util::write(&output).unwrap().as_slice());
+    let output_vec = util::write(&output).unwrap();
+    sp1_zkvm::io::commit_slice(output_vec.as_slice());
 }
 
-pub fn run(input: SpellProverInput) -> (String, NormalizedSpell) {
+pub(crate) fn run(input: SpellProverInput) -> (String, NormalizedSpell) {
     let SpellProverInput {
         self_spell_vk,
         prev_txs,

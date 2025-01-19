@@ -1,10 +1,10 @@
 use crate::{
     app,
-    cli::{SpellProveParams, SpellRenderParams},
+    cli::SpellProveParams,
     spell,
     spell::Spell,
     tx::{add_spell, txs_by_txid},
-    utils, SPELL_VK,
+    utils,
 };
 use anyhow::{anyhow, ensure, Result};
 use bitcoin::{
@@ -93,7 +93,6 @@ pub fn do_prove(
         &binaries,
         app_private_inputs,
         prev_txs.values().cloned().collect(),
-        SPELL_VK,
     )?;
 
     // Serialize spell into CBOR
@@ -161,8 +160,4 @@ fn align_spell_to_tx(norm_spell: &mut NormalizedSpell, tx: &Transaction) -> Resu
     }
 
     Ok(())
-}
-
-pub(crate) fn render(_params: SpellRenderParams) -> Result<()> {
-    todo!()
 }

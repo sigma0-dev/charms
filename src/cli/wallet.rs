@@ -1,9 +1,11 @@
 use crate::{
+    cli,
     cli::{spell::do_prove, WalletCastParams, WalletListParams},
-    spell::{str_index, Input, KeyedCharms, Output, Spell},
+    spell::{Input, KeyedCharms, Output, Spell},
     tx,
     tx::txs_by_txid,
     utils,
+    utils::str_index,
 };
 use anyhow::{ensure, Result};
 use bitcoin::{
@@ -51,16 +53,8 @@ pub fn list(params: WalletListParams) -> Result<()> {
 
     let unspent_charms_outputs = outputs_with_charms(b_list_unspent)?;
 
-    match params.json {
-        true => Ok(serde_json::to_writer_pretty(
-            std::io::stdout(),
-            &unspent_charms_outputs,
-        )?),
-        false => Ok(serde_yaml::to_writer(
-            std::io::stdout(),
-            &unspent_charms_outputs,
-        )?),
-    }
+    cli::print_output(&unspent_charms_outputs, params.json)?;
+    Ok(())
 }
 
 fn outputs_with_charms(b_list_unspent: Vec<BListUnspentItem>) -> Result<AppsAndCharmsOutputs> {

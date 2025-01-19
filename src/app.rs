@@ -29,7 +29,7 @@ impl Prover {
         }
     }
 
-    pub fn prove(
+    pub(crate) fn prove(
         &self,
         app_binaries: &BTreeMap<B32, Vec<u8>>,
         tx: Transaction,
