@@ -11,7 +11,7 @@ pub fn main() {
     eprintln!("about to commit");
 
     // Commit to the public values of the program.
-    sp1_zkvm::io::commit(&output);
+    sp1_zkvm::io::commit_slice(util::write(&output).unwrap().as_slice());
 }
 
 pub fn run(input: SpellProverInput) -> (String, NormalizedSpell) {

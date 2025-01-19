@@ -3,6 +3,7 @@ use ciborium_io::Read;
 use core::fmt::Debug;
 use serde::{de::DeserializeOwned, Serialize};
 
+/// Deserialize a CBOR value from a reader (e.g. `&[u8]` or `std::io::stdin()`).
 pub fn read<T, R>(s: R) -> Result<T>
 where
     T: DeserializeOwned,
@@ -12,6 +13,7 @@ where
     Ok(ciborium::from_reader(s)?)
 }
 
+/// Serialize a value to a byte vector as CBOR.
 pub fn write<T>(t: &T) -> Result<Vec<u8>>
 where
     T: Serialize,

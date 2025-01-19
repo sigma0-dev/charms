@@ -16,6 +16,21 @@ use serde::{
 };
 pub mod util;
 
+/// Macro to check a condition and return false (early) if it does not hold.
+/// This is useful for checking pre-requisite conditions in predicate-type functions.
+/// Inspired by the `ensure!` macro from the `anyhow` crate.
+/// The function must return a boolean.
+/// Example:
+/// ```rust
+/// use charms_data::check;
+///
+/// fn b_is_multiple_of_a(a: u32, b: u32) -> bool {
+///     check!(a <= b && a != 0);    // returns false early if `a` is greater than `b` or `a` is zero
+///     match b % a {
+///         0 => true,
+///         _ => false,
+///     }
+/// }
 #[macro_export]
 macro_rules! check {
     ($condition:expr) => {
@@ -26,6 +41,10 @@ macro_rules! check {
     };
 }
 
+/// Represents a transaction involving Charms.
+/// A Charms transaction sits on top of a Bitcoin transaction. Therefore, it transforms a set of
+/// input UTXOs into a set of output UTXOs.
+/// A Charms transaction may also reference other valid UTXOs that are not being spent or created.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Transaction {
     /// Input UTXOs.
@@ -36,15 +55,19 @@ pub struct Transaction {
     pub outs: Vec<Charms>,
 }
 
-/// Charm is essentially an app-level UTXO that can carry tokens, NFTs, arbitrary app state.
-/// Structurally it is a sorted map of `app -> app_state`
+/// Charms are tokens, NFTs or instances of arbitrary app state.
+/// This type alias represents a collection of charms.
+/// Structurally it is a map of `app -> data`.
 pub type Charms = BTreeMap<App, Data>;
 
+/// ID of a UTXO (Unspent Transaction Output) in the underlying ledger system (e.g. Bitcoin).
+/// A UTXO ID is a pair of `(transaction ID, index of the output)`.
 #[cfg_attr(test, derive(test_strategy::Arbitrary))]
 #[derive(Clone, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct UtxoId(pub TxId, pub u32);
 
 impl UtxoId {
+    /// Convert to a byte array (of 36 bytes).
     pub fn to_bytes(&self) -> [u8; 36] {
         let mut bytes = [0u8; 36];
         bytes[..32].copy_from_slice(&self.0 .0); // Copy TxId
@@ -52,6 +75,7 @@ impl UtxoId {
         bytes
     }
 
+    /// Create `UtxoId` from a byte array (of 36 bytes).
     pub fn from_bytes(bytes: [u8; 36]) -> Self {
         let mut txid_bytes = [0u8; 32];
         txid_bytes.copy_from_slice(&bytes[..32]);
@@ -59,6 +83,12 @@ impl UtxoId {
         UtxoId(TxId(txid_bytes), index)
     }
 
+    /// Try to create `UtxoId` from a string in the format `txid_hex:index`.
+    /// Example:
+    /// ```
+    /// use charms_data::UtxoId;
+    /// let utxo_id = UtxoId::from_str("92077a14998b31367efeec5203a00f1080facdb270cbf055f09b66ae0a273c7d:3").unwrap();
+    /// ```
     pub fn from_str(s: &str) -> Result<Self> {
         let parts: Vec<&str> = s.split(':').collect();
         if parts.len() != 2 {
@@ -145,6 +175,23 @@ impl<'de> Deserialize<'de> for UtxoId {
     }
 }
 
+/// App represents an application that can be used to create, transform or destroy charms (tokens,
+/// NFTs and other instances of app data).
+///
+/// An app is identified by a single character `tag`, a 32-byte `identity` and a 32-byte `vk`
+/// (verification key).
+/// The `tag` is a single character that represents the type of the app, with two special values:
+/// - `TOKEN` (tag `t`) for tokens,
+/// - `NFT` (tag `n`) for NFTs.
+///
+/// Other values of `tag` are perfectly legal. The above ones are special: tokens and NFTs can be
+/// transferred without providing the app's implementation (RISC-V binary).
+///
+/// The `vk` is a 32-byte byte string (hash) that is used to verify proofs that the app's contract
+/// is satisfied (against the certain transaction, additional public input and private input).
+///
+/// The `identity` is a 32-byte byte string (hash) that uniquely identifies the app among other apps
+/// implemented using the same code.
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct App {
@@ -256,11 +303,21 @@ impl<'de> Deserialize<'de> for App {
     }
 }
 
+/// ID (hash) of a transaction in the underlying ledger (Bitcoin).
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct TxId(pub [u8; 32]);
 
 impl TxId {
+    /// Try to create `TxId` from a string of 64 hex characters.
+    /// Note that string representation of transaction IDs in Bitcoin is reversed, and so is ours
+    /// (for compatibility).
+    ///
+    /// Example:
+    /// ```
+    /// use charms_data::TxId;
+    /// let tx_id = TxId::from_str("92077a14998b31367efeec5203a00f1080facdb270cbf055f09b66ae0a273c7d").unwrap();
+    /// ```
     pub fn from_str(s: &str) -> Result<Self> {
         ensure!(s.len() == 64, "expected 64 hex characters");
         let bytes = hex::decode(s).map_err(|e| anyhow!("invalid txid hex: {}", e))?;
@@ -342,11 +399,13 @@ impl<'de> Deserialize<'de> for TxId {
     }
 }
 
+/// 32-byte byte string (e.g. a hash, like SHA256).
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Default, Serialize, Deserialize)]
 pub struct B32(pub [u8; 32]);
 
 impl B32 {
+    /// Try to create `B32` from a string of 64 hex characters.
     pub fn from_str(s: &str) -> Result<Self> {
         ensure!(s.len() == 64, "expected 64 hex characters");
         let bytes = hex::decode(s).map_err(|e| anyhow!("invalid hex: {}", e))?;
@@ -373,6 +432,7 @@ impl fmt::Debug for B32 {
     }
 }
 
+/// Represents a data value that is guaranteed to be serialized/deserialized to/from CBOR.
 #[derive(Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Data(Value);
 
@@ -387,20 +447,25 @@ impl Ord for Data {
 }
 
 impl Data {
+    /// Create an empty data value.
     pub fn empty() -> Self {
         Self(Value::Null)
     }
 
+    /// Check if the data value is empty.
     pub fn is_empty(&self) -> bool {
         self.0.is_null()
     }
 
+    /// Try to cast to a value of a deserializable type (implementing
+    /// `serde::de::DeserializeOwned`).
     pub fn value<T: DeserializeOwned>(&self) -> Result<T> {
         self.0
             .deserialized()
             .map_err(|e| anyhow!("deserialization error: {}", e))
     }
 
+    /// Serialize to bytes.
     pub fn bytes(&self) -> Vec<u8> {
         util::write(&self).expect("serialization should have succeeded")
     }
@@ -427,9 +492,14 @@ impl fmt::Debug for Data {
     }
 }
 
+/// Special `App.tag` value for fungible tokens. See [`App`] for more details.
 pub const TOKEN: char = 't';
+/// Special `App.tag` value for non-fungible tokens (NFTs). See [`App`] for more details.
 pub const NFT: char = 'n';
 
+/// Check if the provided app's token amounts are balanced in the transaction. This means that the
+/// sum of the token amounts in the `tx` inputs is equal to the sum of the token amounts in the `tx`
+/// outputs.
 pub fn token_amounts_balanced(app: &App, tx: &Transaction) -> bool {
     match (
         sum_token_amount(app, tx.ins.values()),
@@ -440,6 +510,8 @@ pub fn token_amounts_balanced(app: &App, tx: &Transaction) -> bool {
     }
 }
 
+/// Check if the NFT states are preserved in the transaction. This means that the NFTs (created by
+/// the provided `app`) in the `tx` inputs are the same as the NFTs in the `tx` outputs.
 pub fn nft_state_preserved(app: &App, tx: &Transaction) -> bool {
     let nft_states_in = app_state_multiset(app, tx.ins.values());
     let nft_states_out = app_state_multiset(app, tx.outs.iter());
@@ -447,7 +519,7 @@ pub fn nft_state_preserved(app: &App, tx: &Transaction) -> bool {
     nft_states_in == nft_states_out
 }
 
-pub fn app_state_multiset<'a>(
+fn app_state_multiset<'a>(
     app: &App,
     strings_of_charms: impl Iterator<Item = &'a Charms>,
 ) -> BTreeMap<&'a Data, usize> {
@@ -464,11 +536,13 @@ pub fn app_state_multiset<'a>(
         })
 }
 
+/// Sum the token amounts in the provided `strings_of_charms`.
 pub fn sum_token_amount<'a>(
-    self_app: &App,
+    app: &App,
     strings_of_charms: impl Iterator<Item = &'a Charms>,
 ) -> Result<u64> {
-    strings_of_charms.fold(Ok(0u64), |amount, charms| match charms.get(self_app) {
+    ensure!(app.tag == TOKEN);
+    strings_of_charms.fold(Ok(0u64), |amount, charms| match charms.get(app) {
         Some(state) => Ok(amount? + state.value::<u64>()?),
         None => amount,
     })

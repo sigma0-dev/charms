@@ -12,7 +12,7 @@ use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Charm as represented in a spell.
-/// Map of `$TICKER: data`
+/// Map of `$KEY: data`.
 pub type KeyedCharms = BTreeMap<String, Value>;
 
 /// UTXO as represented in a spell.

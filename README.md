@@ -20,7 +20,8 @@ Charms are created using _spells_ — special messages added to Bitcoin transact
 Install Charms CLI:
 
 ```sh
-cargo +nightly install charms
+export CARGO_TARGET_DIR=$(mktemp -d)/target
+cargo install --locked charms --version=0.3.0
 ```
 
 Create your first app (your own token on Bitcoin):
@@ -31,7 +32,9 @@ cd ./my-token
 ls -l
 ```
 
-## How To
+Read this: [hello world!](./hello-world.md)
+
+## Documentation
 
 Concepts and guides: [charms.dev](https://charms.dev)
 
@@ -49,4 +52,4 @@ are, in a way, a generalization of Runes.
 The main difference is that Charms are easily programmable (and composable).
 
 ---
-©️2024 sigmazero
+©️2025 sigmazero

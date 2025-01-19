@@ -99,6 +99,6 @@ const V0_GROTH16_VK_BYTES: &'static [u8] = include_bytes!("../vk/v0/groth16_vk.b
 
 fn to_sp1_pv<T: Serialize>(t: &T) -> SP1PublicValues {
     let mut pv = SP1PublicValues::new();
-    pv.write(t);
+    pv.write_slice(util::write(t).unwrap().as_slice());
     pv
 }
