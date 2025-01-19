@@ -1,7 +1,6 @@
 use crate::{app, spell::Spell};
 use anyhow::{anyhow, ensure, Result};
 use charms_data::{Data, B32};
-use ciborium::Value;
 use std::{
     collections::BTreeMap,
     env, fs, io,
@@ -131,9 +130,9 @@ pub fn run(spell: PathBuf, path: Option<PathBuf>) -> Result<()> {
     Ok(())
 }
 
-fn data_for_key(inputs: &BTreeMap<String, Value>, k: &String) -> Data {
+fn data_for_key(inputs: &BTreeMap<String, Data>, k: &String) -> Data {
     match inputs.get(k) {
-        Some(v) => Data::from(v),
+        Some(v) => v.clone(),
         None => Data::empty(),
     }
 }

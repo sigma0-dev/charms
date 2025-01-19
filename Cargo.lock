@@ -1211,7 +1211,6 @@ dependencies = [
  "bitcoincore-rpc",
  "charms-data",
  "charms-spell-checker",
- "ciborium",
  "clap",
  "hex",
  "proptest",

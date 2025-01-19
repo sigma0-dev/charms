@@ -10,8 +10,7 @@ use bitcoin::{
     absolute::LockTime, consensus::encode::serialize_hex, hashes::Hash, transaction::Version,
     Amount, OutPoint, ScriptBuf, Transaction, TxIn, TxOut, Txid,
 };
-use charms_data::{App, TxId, UtxoId};
-use ciborium::Value;
+use charms_data::{App, Data, TxId, UtxoId};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -31,10 +30,10 @@ struct BListUnspentItem {
 struct OutputWithCharms {
     confirmations: u32,
     sats: u64,
-    charms: BTreeMap<String, Value>,
+    charms: BTreeMap<String, Data>,
 }
 
-type ParsedCharms = BTreeMap<App, Value>;
+type ParsedCharms = BTreeMap<App, Data>;
 
 #[derive(Debug, Serialize)]
 struct AppsAndCharmsOutputs {

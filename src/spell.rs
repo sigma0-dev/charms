@@ -2,18 +2,17 @@ use crate::{app, SPELL_CHECKER_BINARY};
 use anyhow::{anyhow, ensure, Error};
 use bitcoin::{address::NetworkUnchecked, Address};
 use charms_data::{util, App, Charms, Data, Transaction, UtxoId, B32};
-use charms_spell_checker::{
+pub use charms_spell_checker::{
     NormalizedCharms, NormalizedSpell, NormalizedTransaction, Proof, SpellProverInput,
     CURRENT_VERSION,
 };
-use ciborium::Value;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Charm as represented in a spell.
 /// Map of `$KEY: data`.
-pub type KeyedCharms = BTreeMap<String, Value>;
+pub type KeyedCharms = BTreeMap<String, Data>;
 
 /// UTXO as represented in a spell.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -43,10 +42,10 @@ pub struct Spell {
     pub apps: BTreeMap<String, App>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub public_inputs: Option<BTreeMap<String, Value>>,
+    pub public_inputs: Option<BTreeMap<String, Data>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub private_inputs: Option<BTreeMap<String, Value>>,
+    pub private_inputs: Option<BTreeMap<String, Data>>,
 
     pub ins: Vec<Input>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -258,17 +257,14 @@ pub fn str_index(i: &usize) -> String {
 
 fn app_inputs(
     keyed_apps: &BTreeMap<String, App>,
-    keyed_inputs: &BTreeMap<String, Value>,
+    keyed_inputs: &BTreeMap<String, Data>,
 ) -> BTreeMap<App, Data> {
     keyed_apps
         .iter()
         .map(|(k, app)| {
             (
                 app.clone(),
-                keyed_inputs
-                    .get(k)
-                    .map(|v| Data::from(v))
-                    .unwrap_or_default(),
+                keyed_inputs.get(k).cloned().unwrap_or_default(),
             )
         })
         .collect()
@@ -328,8 +324,6 @@ pub fn prove(
 mod test {
     use super::*;
 
-    use ciborium::Value;
-
     #[test]
     fn deserialize_keyed_charm() {
         let y = r#"
@@ -337,17 +331,17 @@ $TOAD_SUB: 10
 $TOAD: 9
 "#;
 
-        let charms = serde_yaml::from_str::<KeyedCharms>(y).unwrap();
+        let charms: KeyedCharms = serde_yaml::from_str(y).unwrap();
         dbg!(&charms);
 
-        let utxo_id =
+        let utxo_id_0 =
             UtxoId::from_str("f72700ac56bd4dd61f2ccb4acdf21d0b11bb294fc3efa9012b77903932197d2f:2")
                 .unwrap();
-        let buf = util::write(&utxo_id).unwrap();
+        let buf = util::write(&utxo_id_0).unwrap();
 
-        let utxo_id_value: Value = util::read(buf.as_slice()).unwrap();
+        let utxo_id_data: Data = util::read(buf.as_slice()).unwrap();
 
-        let utxo_id: UtxoId = dbg!(utxo_id_value).deserialized().unwrap();
-        dbg!(utxo_id);
+        let utxo_id: UtxoId = utxo_id_data.value().unwrap();
+        assert_eq!(utxo_id_0, dbg!(utxo_id));
     }
 }
