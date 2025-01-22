@@ -16,12 +16,12 @@ license = "MIT"
 
 [dependencies]
 anyhow = { workspace = true }
-axum = { version = "0.8.1" }
+axum = { version = "0.8.2" }
 bitcoin = { workspace = true, features = ["rand", "rand-std"] }
 bitcoincore-rpc = { version = "0.19.0" }
 charms-data = { path = "./charms-data", version = "0.3.1" }
 charms-spell-checker = { path = "charms-spell-checker", version = "0.3.1" }
-clap = { version = "4.5.26", features = ["derive"] }
+clap = { version = "4.5.27", features = ["derive"] }
 clap_complete = { version = "4.5.42" }
 hex = { workspace = true }
 rand = { workspace = true }
