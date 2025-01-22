@@ -4,9 +4,10 @@ pub mod spell;
 pub mod tx;
 pub mod wallet;
 
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, CommandFactory, Parser, Subcommand};
+use clap_complete::{generate, Shell};
 use serde::Serialize;
-use std::{net::IpAddr, path::PathBuf};
+use std::{io, net::IpAddr, path::PathBuf};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -67,6 +68,13 @@ pub enum Commands {
     Wallet {
         #[command(subcommand)]
         command: WalletCommands,
+    },
+
+    /// Generate shell completion scripts
+    Completions {
+        /// Shell to generate completions for
+        #[arg(value_enum)]
+        shell: Shell,
     },
 }
 
@@ -211,7 +219,14 @@ pub async fn run() -> anyhow::Result<()> {
             WalletCommands::List(params) => wallet::list(params),
             WalletCommands::Cast(params) => wallet::cast(params),
         },
+        Commands::Completions { shell } => generate_completions(shell),
     }
+}
+
+fn generate_completions(shell: Shell) -> anyhow::Result<()> {
+    let cmd = &mut Cli::command();
+    generate(shell, cmd, cmd.get_name().to_string(), &mut io::stdout());
+    Ok(())
 }
 
 fn print_output<T: Serialize>(output: &T, json: bool) -> anyhow::Result<()> {
