@@ -1,0 +1,16 @@
+services:
+  bitcoind:
+    image: lncm/bitcoind:v28.0
+    command:
+      - -conf=/bitcoin.conf
+    container_name: bitcoind
+    volumes:
+      - bitcoin-data:/data/.bitcoin
+      - ./bitcoin.conf:/bitcoin.conf:ro
+    ports:
+      - "48333:48333"
+      - "48332:48332"
+    restart: unless-stopped
+
+volumes:
+  bitcoin-data:
