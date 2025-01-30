@@ -32,7 +32,7 @@ cd ./my-token
 ls -l
 ```
 
-Read this: [hello world!](./hello-world.md)
+Now head on to [charms.dev](https://charms.dev) to learn more!
 
 ## Documentation
 
@@ -49,7 +49,7 @@ charms --help
 Charms are inspired by [Runes](https://docs.ordinals.com/runes.html) — a way to create tokens on top of Bitcoin. Charms
 are, in a way, a generalization of Runes.
 
-The main difference is that Charms are easily programmable (and composable).
+The main difference is that Charms are programmable (and composable).
 
 ---
-©️2025 sigmazero
+©️2025 Charms

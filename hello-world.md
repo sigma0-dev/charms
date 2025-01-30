@@ -6,7 +6,7 @@ Bitcoin Core v22.0 or later is required:
 brew install bitcoin
 ```
 
-This walkthrough assumes a bitcoin node running with the following configuration (`bitcoin.conf`):
+This guide assumes a bitcoin node running with the following configuration (`bitcoin.conf`):
 
 ```
 server=1
@@ -16,9 +16,12 @@ addresstype=bech32m
 changetype=bech32m
 ```
 
-On macOS, `bitcoin.conf` is usually located at `~/Library/Application Support/Bitcoin/bitcoin.conf`.
+`bitcoin.conf` is usually located at:
 
-Alias `bitcoin-cli` as `b` (it's annoying to type `bitcoin-cli` all the time):
+- macOS: `~/Library/Application Support/Bitcoin/bitcoin.conf`,
+- Linux: `~/.bitcoin/bitcoin.conf`.
+
+**Important:** in this guide, we have `bitcoin-cli` aliased as `b`:
 
 ```sh
 alias b=bitcoin-cli
@@ -104,7 +107,7 @@ app_bins=$(charms app build)
 # should NOT be the same as the one you used for minting the NFT
 funding_utxo_id="8c1d638a7ff6b6a977580beec47fcc9b8a93e44893c27ab69935c14e9316a735:1"
 
-cat ./spells/mint-nft.yaml | envsubst | charms wallet cast --app-bins=${app_bins} --funding-utxo-id=${funding_utxo_id}
+cat ./spells/mint-nft.yaml | envsubst | RUST_LOG=info charms wallet cast --app-bins=${app_bins} --funding-utxo-id=${funding_utxo_id}
 ```
 
 This will create and sign (but not yet submit to the network) two Bitcoin transactions: commit tx and execute tx. The

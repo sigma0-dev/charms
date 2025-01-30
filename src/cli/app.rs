@@ -24,7 +24,7 @@ pub fn new(name: &str) -> Result<()> {
     let status = Command::new("cargo")
         .args(&[
             "generate",
-            "--git=https://github.com/sigma0-dev/charms-app",
+            "--git=https://github.com/CharmsDev/charms-app",
             "--name",
             name,
         ])
