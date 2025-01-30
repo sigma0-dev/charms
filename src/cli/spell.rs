@@ -98,9 +98,6 @@ pub fn do_prove(
     // Serialize spell into CBOR
     let spell_data = util::write(&(&norm_spell, &proof))?;
 
-    // Parse amount
-    let funding_utxo_value = Amount::from_sat(funding_utxo_value);
-
     // Parse change address into ScriptPubkey
     let change_script_pubkey = bitcoin::Address::from_str(&change_address)?
         .assume_checked()
@@ -114,7 +111,7 @@ pub fn do_prove(
         tx,
         &spell_data,
         funding_utxo,
-        funding_utxo_value,
+        Amount::from_sat(funding_utxo_value),
         change_script_pubkey,
         fee_rate,
         &prev_txs,
