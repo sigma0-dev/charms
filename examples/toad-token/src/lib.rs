@@ -1,7 +1,4 @@
-use charms_sdk::data::{
-    check, nft_state_preserved, sum_token_amount, token_amounts_balanced, App, Data, Transaction,
-    UtxoId, B32, NFT, TOKEN,
-};
+use charms_sdk::data::{check, sum_token_amount, App, Data, Transaction, UtxoId, B32, NFT, TOKEN};
 use sha2::{Digest, Sha256};
 
 pub fn app_contract(app: &App, tx: &Transaction, x: &Data, w: &Data) -> bool {
@@ -25,9 +22,7 @@ fn nft_contract_satisfied(app: &App, tx: &Transaction, w: &Data) -> bool {
         identity: app.identity.clone(),
         vk: app.vk.clone(),
     };
-    check!(
-        nft_state_preserved(app, tx) || can_mint_nft(app, tx, w) || can_mint_token(&token_app, tx)
-    );
+    check!(can_mint_nft(app, tx, w) || can_mint_token(&token_app, tx));
     true
 }
 
@@ -58,7 +53,7 @@ pub(crate) fn hash(data: &str) -> B32 {
 }
 
 fn token_contract_satisfied(token_app: &App, tx: &Transaction) -> bool {
-    check!(token_amounts_balanced(token_app, tx) || can_mint_token(token_app, tx));
+    check!(can_mint_token(token_app, tx));
     true
 }
 

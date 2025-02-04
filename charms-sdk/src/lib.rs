@@ -5,7 +5,7 @@ pub use sp1_zkvm;
 macro_rules! main {
     ($path:path) => {
         fn main() {
-            use charms_sdk::data::{util, App, Data, Transaction};
+            use charms_sdk::data::{is_simple_transfer, util, App, Data, Transaction};
 
             fn read_input() -> (App, Transaction, Data, Data) {
                 let buf = charms_sdk::sp1_zkvm::io::read_vec();
@@ -20,7 +20,7 @@ macro_rules! main {
             }
 
             let (app, tx, x, w): (App, Transaction, Data, Data) = read_input();
-            assert!($path(&app, &tx, &x, &w));
+            assert!(is_simple_transfer(&app, &tx) || $path(&app, &tx, &x, &w));
             commit(app, tx, x);
         }
 

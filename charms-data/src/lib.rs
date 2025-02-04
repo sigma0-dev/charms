@@ -497,6 +497,15 @@ pub const TOKEN: char = 't';
 /// Special `App.tag` value for non-fungible tokens (NFTs). See [`App`] for more details.
 pub const NFT: char = 'n';
 
+/// Check if the transaction is a simple transfer of assets specified by `app`.
+pub fn is_simple_transfer(app: &App, tx: &Transaction) -> bool {
+    match app.tag {
+        TOKEN => token_amounts_balanced(app, tx) && nft_state_preserved(app, tx),
+        NFT => nft_state_preserved(app, tx),
+        _ => false,
+    }
+}
+
 /// Check if the provided app's token amounts are balanced in the transaction. This means that the
 /// sum of the token amounts in the `tx` inputs is equal to the sum of the token amounts in the `tx`
 /// outputs.
