@@ -1,6 +1,14 @@
 use crate::{cli::ServerConfig, spell::Spell, tx::norm_spell_and_proof};
 use anyhow::Result;
-use axum::{extract::Path, http::StatusCode, routing::MethodRouter, Json, Router};
+use axum::{
+    body::Body,
+    extract::Path,
+    http::{header, HeaderValue, StatusCode},
+    middleware::{self, Next},
+    response::Response,
+    routing::MethodRouter,
+    Json, Router,
+};
 use bitcoin::{consensus::encode::deserialize_hex, Transaction};
 use bitcoincore_rpc::{jsonrpc::Error::Rpc, Auth, Client, RpcApi};
 use serde::{Deserialize, Serialize};
@@ -35,13 +43,15 @@ pub async fn server(
     RPC.set(bitcoind_client(rpc_url, rpc_user, rpc_password))
         .expect("Should set RPC client");
 
-    // Build router
-    let app = Router::new().route(
-        "/spells/{txid}",
-        MethodRouter::new()
-            .get(get_spell_handler)
-            .put(put_spell_handler),
-    );
+    // Build router with CORS middleware
+    let app = Router::new()
+        .route(
+            "/spells/{txid}",
+            MethodRouter::new()
+                .get(get_spell_handler)
+                .put(put_spell_handler),
+        )
+        .layer(middleware::from_fn(cors_middleware));
 
     // Run server
     let addr = format!("{}:{}", ip_addr, port);
@@ -50,6 +60,26 @@ pub async fn server(
 
     axum::serve(listener, app).await?;
     Ok(())
+}
+
+async fn cors_middleware(request: axum::http::Request<Body>, next: Next) -> Response {
+    let mut response = next.run(request).await;
+
+    let headers = response.headers_mut();
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_ORIGIN,
+        HeaderValue::from_static("*"),
+    );
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_METHODS,
+        HeaderValue::from_static("GET, PUT, OPTIONS"),
+    );
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_HEADERS,
+        HeaderValue::from_static("Content-Type"),
+    );
+
+    response
 }
 
 // Handlers
