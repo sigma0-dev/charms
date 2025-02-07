@@ -528,6 +528,13 @@ pub fn nft_state_preserved(app: &App, tx: &Transaction) -> bool {
     nft_states_in == nft_states_out
 }
 
+pub fn app_datas<'a>(
+    app: &'a App,
+    strings_of_charms: impl Iterator<Item = &'a Charms>,
+) -> impl Iterator<Item = &'a Data> {
+    strings_of_charms.filter_map(|charms| charms.get(app))
+}
+
 fn app_state_multiset<'a>(
     app: &App,
     strings_of_charms: impl Iterator<Item = &'a Charms>,

@@ -13,4 +13,6 @@ ins:
 outs:
   - address: ${addr_0}
     charms:
-      $00: 100000
+      $00:
+        ticker: TOAD
+        remaining: 100000

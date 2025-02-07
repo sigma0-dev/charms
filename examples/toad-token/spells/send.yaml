@@ -1,7 +1,6 @@
 version: 1
 
 apps:
-  $00: n/${app_id}/${app_vk}
   $01: t/${app_id}/${app_vk}
 
 ins:
@@ -9,18 +8,10 @@ ins:
     charms:
       $01: 69420
 
-  - utxo_id: ${in_utxo_1}
-    charms:
-      $00: 30580
-
 outs:
   - address: ${addr_0}
     charms:
-      $00: 30580
       $01: 420
-
-  - address: ${addr_1}
-    charms: {}
 
   - address: ${addr_2}
     charms:

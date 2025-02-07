@@ -512,6 +512,7 @@ name = "toad-token"
 version = "0.3.0"
 dependencies = [
  "charms-sdk",
+ "serde",
  "sha2",
 ]
 
