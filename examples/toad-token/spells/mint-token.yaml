@@ -4,9 +4,6 @@ apps:
   $00: n/${app_id}/${app_vk}
   $01: t/${app_id}/${app_vk}
 
-private_inputs:
-  $00: ""
-
 ins:
   - utxo_id: ${in_utxo_0}
     charms:

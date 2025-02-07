@@ -500,7 +500,7 @@ pub const NFT: char = 'n';
 /// Check if the transaction is a simple transfer of assets specified by `app`.
 pub fn is_simple_transfer(app: &App, tx: &Transaction) -> bool {
     match app.tag {
-        TOKEN => token_amounts_balanced(app, tx) && nft_state_preserved(app, tx),
+        TOKEN => token_amounts_balanced(app, tx),
         NFT => nft_state_preserved(app, tx),
         _ => false,
     }

@@ -36,7 +36,10 @@ fn nft_contract_satisfied(app: &App, tx: &Transaction, w: &Data) -> bool {
 }
 
 fn can_mint_nft(nft_app: &App, tx: &Transaction, w: &Data) -> bool {
-    let w_str: String = w.value().unwrap();
+    let w_str: Option<String> = w.value().ok();
+
+    check!(w_str.is_some());
+    let w_str = w_str.unwrap();
 
     // can only mint an NFT with this contract if the hash of `w` is the identity of the NFT.
     check!(hash(&w_str) == nft_app.identity);
@@ -74,7 +77,7 @@ fn can_mint_token(token_app: &App, tx: &Transaction) -> bool {
     let Some(nft_content): Option<NftContent> =
         app_datas(&nft_app, tx.ins.values()).find_map(|data| data.value().ok())
     else {
-        eprintln!("could not determine incoming supply");
+        eprintln!("could not determine incoming remaining supply");
         return false;
     };
     let incoming_supply = nft_content.remaining;
@@ -82,22 +85,22 @@ fn can_mint_token(token_app: &App, tx: &Transaction) -> bool {
     let Some(nft_content): Option<NftContent> =
         app_datas(&nft_app, tx.outs.iter()).find_map(|data| data.value().ok())
     else {
-        eprintln!("could not determine outgoing supply");
+        eprintln!("could not determine outgoing remaining supply");
         return false;
     };
     let outgoing_supply = nft_content.remaining;
 
     if !(incoming_supply >= outgoing_supply) {
-        eprintln!("incoming supply must be greater than or equal to outgoing supply");
+        eprintln!("incoming remaining supply must be >= outgoing remaining supply");
         return false;
     }
 
     let Some(input_token_amount) = sum_token_amount(&token_app, tx.ins.values()).ok() else {
-        eprintln!("could not determine input token amount");
+        eprintln!("could not determine input total token amount");
         return false;
     };
     let Some(output_token_amount) = sum_token_amount(&token_app, tx.outs.iter()).ok() else {
-        eprintln!("could not determine output token amount");
+        eprintln!("could not determine output total token amount");
         return false;
     };
 
