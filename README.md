@@ -52,4 +52,4 @@ are, in a way, a generalization of Runes.
 The main difference is that Charms are programmable (and composable).
 
 ---
-©️2025 Charms
+©️2025 Charms Inc.
