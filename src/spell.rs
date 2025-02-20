@@ -1,14 +1,18 @@
-use crate::{app, utils, SPELL_CHECKER_BINARY, SPELL_VK};
+use crate::{app, tx::add_spell, utils, SPELL_CHECKER_BINARY, SPELL_VK};
 use anyhow::{anyhow, ensure, Error};
-use bitcoin::{address::NetworkUnchecked, Address};
-use charms_data::{util, App, Charms, Data, Transaction, UtxoId, B32};
+use bitcoin::{address::NetworkUnchecked, hashes::Hash, Address, Amount, FeeRate, OutPoint, Txid};
+use charms_data::{util, App, Charms, Data, Transaction, TxId, UtxoId, B32};
 pub use charms_spell_checker::{
     NormalizedCharms, NormalizedSpell, NormalizedTransaction, Proof, SpellProverInput,
     CURRENT_VERSION,
 };
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::PathBuf,
+    str::FromStr,
+};
 
 /// Charm as represented in a spell.
 /// Map of `$KEY: data`.
@@ -357,4 +361,102 @@ $TOAD: 9
         let utxo_id: UtxoId = utxo_id_data.value().unwrap();
         assert_eq!(utxo_id_0, dbg!(utxo_id));
     }
+}
+
+pub fn prove_spell_tx(
+    spell: Spell,
+    tx: bitcoin::Transaction,
+    app_bins: Vec<PathBuf>,
+    prev_txs: BTreeMap<Txid, bitcoin::Transaction>,
+    funding_utxo: OutPoint,
+    funding_utxo_value: u64,
+    change_address: String,
+    fee_rate: f64,
+) -> anyhow::Result<[bitcoin::Transaction; 2]> {
+    let (mut norm_spell, app_private_inputs) = spell.normalized()?;
+    align_spell_to_tx(&mut norm_spell, &tx)?;
+
+    let app_prover = app::Prover::new();
+
+    let binaries = app_bins
+        .iter()
+        .map(|path| {
+            let binary = std::fs::read(path)?;
+            let vk_hash = app_prover.vk(&binary);
+            Ok((B32(vk_hash), binary))
+        })
+        .collect::<anyhow::Result<_>>()?;
+
+    let (norm_spell, proof) = prove(
+        norm_spell,
+        &binaries,
+        app_private_inputs,
+        prev_txs.values().cloned().collect(),
+    )?;
+
+    // Serialize spell into CBOR
+    let spell_data = util::write(&(&norm_spell, &proof))?;
+
+    // Parse change address into ScriptPubkey
+    let change_script_pubkey = bitcoin::Address::from_str(&change_address)?
+        .assume_checked()
+        .script_pubkey();
+
+    // Parse fee rate
+    let fee_rate = FeeRate::from_sat_per_kwu((fee_rate * 250.0) as u64);
+
+    // Call the add_spell function
+    let transactions = add_spell(
+        tx,
+        &spell_data,
+        funding_utxo,
+        Amount::from_sat(funding_utxo_value),
+        change_script_pubkey,
+        fee_rate,
+        &prev_txs,
+    );
+    Ok(transactions)
+}
+
+fn align_spell_to_tx(
+    norm_spell: &mut NormalizedSpell,
+    tx: &bitcoin::Transaction,
+) -> anyhow::Result<()> {
+    let spell_ins = norm_spell.tx.ins.as_ref().ok_or(anyhow!("no inputs"))?;
+
+    ensure!(
+        spell_ins.len() <= tx.input.len(),
+        "spell inputs exceed transaction inputs"
+    );
+    ensure!(
+        norm_spell.tx.outs.len() <= tx.output.len(),
+        "spell outputs exceed transaction outputs"
+    );
+
+    for i in 0..spell_ins.len() {
+        let utxo_id = &spell_ins[i];
+        let out_point = tx.input[i].previous_output;
+        ensure!(
+            utxo_id.0 == TxId(out_point.txid.to_byte_array()),
+            "input {} txid mismatch: {} != {}",
+            i,
+            utxo_id.0,
+            out_point.txid
+        );
+        ensure!(
+            utxo_id.1 == out_point.vout,
+            "input {} vout mismatch: {} != {}",
+            i,
+            utxo_id.1,
+            out_point.vout
+        );
+    }
+
+    for i in spell_ins.len()..tx.input.len() {
+        let out_point = tx.input[i].previous_output;
+        let utxo_id = UtxoId(TxId(out_point.txid.to_byte_array()), out_point.vout);
+        norm_spell.tx.ins.get_or_insert_with(Vec::new).push(utxo_id);
+    }
+
+    Ok(())
 }
