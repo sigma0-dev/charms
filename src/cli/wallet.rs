@@ -1,17 +1,14 @@
 use crate::{
     cli,
-    cli::{spell::do_prove, WalletCastParams, WalletListParams},
-    spell::{Input, KeyedCharms, Output, Spell},
+    cli::{WalletCastParams, WalletListParams},
+    spell::{prove_spell_tx, KeyedCharms, Spell},
     tx,
     tx::txs_by_txid,
     utils,
     utils::str_index,
 };
 use anyhow::{ensure, Result};
-use bitcoin::{
-    absolute::LockTime, consensus::encode::serialize_hex, hashes::Hash, transaction::Version,
-    Amount, OutPoint, ScriptBuf, Transaction, TxIn, TxOut, Txid,
-};
+use bitcoin::{consensus::encode::serialize_hex, hashes::Hash, OutPoint, Transaction};
 use charms_data::{App, Data, TxId, UtxoId};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -218,21 +215,13 @@ pub fn cast(
         u.sats.get_or_insert(MIN_SATS);
     }
 
-    let input = tx_input(&spell.ins);
-    let output = tx_output(&spell.outs);
-
-    let tx = Transaction {
-        version: Version::TWO,
-        lock_time: LockTime::ZERO,
-        input,
-        output,
-    };
+    let tx = tx::from_spell(&spell);
 
     let prev_txs = txs_by_txid(get_prev_txs(&tx)?)?;
     let funding_utxo_value = funding_utxo_value(&funding_utxo)?;
     let change_address = new_change_address()?;
 
-    let [commit_tx, spell_tx] = do_prove(
+    let [commit_tx, spell_tx] = prove_spell_tx(
         spell,
         tx,
         app_bins,
@@ -309,35 +298,4 @@ fn get_prev_txs(tx: &Transaction) -> Result<Vec<String>> {
         .split(',')
         .map(|s| s.trim().to_string())
         .collect())
-}
-
-fn tx_output(outs: &[Output]) -> Vec<TxOut> {
-    outs.iter()
-        .map(|u| {
-            let value = Amount::from_sat(u.sats.unwrap());
-            let address = u.address.as_ref().unwrap().clone().assume_checked();
-            let script_pubkey = ScriptBuf::from(address.script_pubkey());
-            TxOut {
-                value,
-                script_pubkey,
-            }
-        })
-        .collect()
-}
-
-fn tx_input(ins: &[Input]) -> Vec<TxIn> {
-    ins.iter()
-        .map(|u| {
-            let utxo_id = u.utxo_id.as_ref().unwrap();
-            TxIn {
-                previous_output: OutPoint {
-                    txid: Txid::from_byte_array(utxo_id.0 .0),
-                    vout: utxo_id.1,
-                },
-                script_sig: Default::default(),
-                sequence: Default::default(),
-                witness: Default::default(),
-            }
-        })
-        .collect()
 }

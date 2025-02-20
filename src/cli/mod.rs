@@ -84,9 +84,9 @@ pub struct SpellProveParams {
     #[arg(long, default_value = "/dev/stdin")]
     spell: PathBuf,
 
-    /// Bitcoin transaction (hex-encoded).
+    /// Bitcoin transaction (hex-encoded). If not provided, will be created from the spell.
     #[arg(long)]
-    tx: String,
+    tx: Option<String>,
 
     /// Pre-requisite transactions (hex-encoded) separated by commas (`,`).
     /// These are the transactions that create the UTXOs that the `tx` (and the spell) spends.

@@ -1,12 +1,13 @@
 use crate::{
     script::{control_block, data_script, taproot_spend_info},
-    spell::Spell,
+    spell::{Input, Output, Spell},
     SPELL_VK,
 };
 use bitcoin::{
     self,
     absolute::LockTime,
     consensus::encode::deserialize_hex,
+    hashes::Hash,
     key::Secp256k1,
     secp256k1::{schnorr, Keypair, Message},
     sighash::{Prevouts, SighashCache},
@@ -232,4 +233,48 @@ pub fn tx_total_amount_in(prev_txs: &BTreeMap<Txid, Transaction>, tx: &Transacti
 
 pub fn tx_total_amount_out(tx: &Transaction) -> Amount {
     tx.output.iter().map(|tx_out| tx_out.value).sum::<Amount>()
+}
+
+pub fn tx_output(outs: &[Output]) -> Vec<TxOut> {
+    outs.iter()
+        .map(|u| {
+            let value = Amount::from_sat(u.sats.unwrap());
+            let address = u.address.as_ref().unwrap().clone().assume_checked();
+            let script_pubkey = ScriptBuf::from(address.script_pubkey());
+            TxOut {
+                value,
+                script_pubkey,
+            }
+        })
+        .collect()
+}
+
+pub fn tx_input(ins: &[Input]) -> Vec<TxIn> {
+    ins.iter()
+        .map(|u| {
+            let utxo_id = u.utxo_id.as_ref().unwrap();
+            TxIn {
+                previous_output: OutPoint {
+                    txid: Txid::from_byte_array(utxo_id.0 .0),
+                    vout: utxo_id.1,
+                },
+                script_sig: Default::default(),
+                sequence: Default::default(),
+                witness: Default::default(),
+            }
+        })
+        .collect()
+}
+
+pub fn from_spell(spell: &Spell) -> Transaction {
+    let input = tx_input(&spell.ins);
+    let output = tx_output(&spell.outs);
+
+    let tx = Transaction {
+        version: Version::TWO,
+        lock_time: LockTime::ZERO,
+        input,
+        output,
+    };
+    tx
 }
