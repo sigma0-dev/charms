@@ -9,7 +9,7 @@ use bitcoin::{
     consensus::encode::deserialize_hex,
     hashes::Hash,
     key::Secp256k1,
-    secp256k1::{schnorr, Keypair, Message},
+    secp256k1::{rand::thread_rng, schnorr, Keypair, Message},
     sighash::{Prevouts, SighashCache},
     taproot,
     taproot::LeafVersion,
@@ -18,7 +18,6 @@ use bitcoin::{
     Txid, Weight, Witness, XOnlyPublicKey,
 };
 use charms_spell_checker::{NormalizedSpell, Proof};
-use rand::thread_rng;
 use std::collections::BTreeMap;
 
 /// `add_spell` adds `spell` to `tx`:
