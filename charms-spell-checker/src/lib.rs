@@ -2,7 +2,7 @@ pub mod app;
 pub mod bin;
 pub mod tx;
 
-use crate::{app::AppContractVK, tx::extract_spell};
+use crate::{app::AppContractVK, tx::extract_and_verify_spell};
 use bitcoin::hashes::Hash;
 use charms_data::{App, Charms, Data, Transaction, TxId, UtxoId};
 use serde::{Deserialize, Serialize};
@@ -215,12 +215,11 @@ pub fn prev_spells(
             (
                 tx_id,
                 (
-                    extract_spell(tx, spell_vk)
+                    extract_and_verify_spell(tx, spell_vk)
                         .map_err(|e| {
                             eprintln!("no correct spell in tx {}: {}", tx_id, e);
                         })
-                        .ok()
-                        .map(|(spell, _)| spell),
+                        .ok(),
                     tx.output.len(),
                 ),
             )

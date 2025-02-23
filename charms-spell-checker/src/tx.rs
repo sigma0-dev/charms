@@ -1,9 +1,10 @@
 use crate::{NormalizedSpell, Proof, CURRENT_VERSION, V0, V0_SPELL_VK};
-use anyhow::{anyhow, bail, ensure, Error};
+use anyhow::{anyhow, bail, ensure};
 use bitcoin::{
     hashes::Hash,
     opcodes::all::{OP_ENDIF, OP_IF},
     script::{Instruction, PushBytes},
+    TxIn,
 };
 use charms_data::{util, TxId, UtxoId};
 use serde::Serialize;
@@ -12,17 +13,61 @@ use sp1_verifier::Groth16Verifier;
 
 /// Extract a [`NormalizedSpell`] from a transaction and verify it.
 /// Incorrect spells are rejected.
-pub fn extract_spell(
+pub fn extract_and_verify_spell(
     tx: &bitcoin::Transaction,
     spell_vk: &str,
-) -> anyhow::Result<(NormalizedSpell, Proof), Error> {
-    let spell_input_index = tx.input.len() - 1;
+) -> anyhow::Result<NormalizedSpell> {
+    let Some((spell_tx_in, tx_ins)) = tx.input.split_last() else {
+        bail!("transaction does not have inputs")
+    };
 
-    let script_data = tx.input[spell_input_index]
+    let script_data = spell_tx_in
         .witness
         .nth(1)
         .ok_or(anyhow!("no spell data in the last input's witness"))?;
 
+    let (spell, proof) = parse_spell_and_proof(script_data)?;
+
+    ensure!(
+        &spell.tx.outs.len() <= &tx.output.len(),
+        "spell tx outs mismatch"
+    );
+    ensure!(
+        &spell.tx.ins.is_none(),
+        "spell must inherit inputs from the enchanted tx"
+    );
+
+    let spell = spell_with_ins(spell, tx_ins);
+
+    let (spell_vk, groth16_vk) = vks(spell.version, spell_vk)?;
+
+    Groth16Verifier::verify(
+        &proof,
+        to_sp1_pv(spell.version, &(spell_vk, &spell)).as_slice(),
+        spell_vk,
+        groth16_vk,
+    )
+    .map_err(|e| anyhow!("could not verify spell proof: {}", e))?;
+
+    Ok(spell)
+}
+
+fn spell_with_ins(spell: NormalizedSpell, spell_tx_ins: &[TxIn]) -> NormalizedSpell {
+    let tx_ins = spell_tx_ins // exclude spell commitment input
+        .iter()
+        .map(|tx_in| {
+            let out_point = tx_in.previous_output;
+            UtxoId(TxId(out_point.txid.to_byte_array()), out_point.vout)
+        })
+        .collect();
+
+    let mut spell = spell;
+    spell.tx.ins = Some(tx_ins);
+
+    spell
+}
+
+pub fn parse_spell_and_proof(script_data: &[u8]) -> anyhow::Result<(NormalizedSpell, Proof)> {
     // Parse script_data into Script
     let script = bitcoin::blockdata::script::Script::from_bytes(script_data);
 
@@ -55,37 +100,6 @@ pub fn extract_spell(
 
     let (spell, proof): (NormalizedSpell, Proof) = util::read(spell_data.as_slice())
         .map_err(|e| anyhow!("could not parse spell and proof: {}", e))?;
-
-    ensure!(
-        &spell.tx.outs.len() <= &tx.output.len(),
-        "spell tx outs mismatch"
-    );
-    ensure!(
-        &spell.tx.ins.is_none(),
-        "spell must inherit inputs from the enchanted tx"
-    );
-
-    let tx_ins = tx.input[..spell_input_index] // exclude spell commitment input
-        .iter()
-        .map(|tx_in| {
-            let out_point = tx_in.previous_output;
-            UtxoId(TxId(out_point.txid.to_byte_array()), out_point.vout)
-        })
-        .collect();
-
-    let mut spell = spell;
-    spell.tx.ins = Some(tx_ins);
-
-    let (spell_vk, groth16_vk) = vks(spell.version, spell_vk)?;
-
-    Groth16Verifier::verify(
-        &proof,
-        to_sp1_pv(spell.version, &(spell_vk, &spell)).as_slice(),
-        spell_vk,
-        groth16_vk,
-    )
-    .map_err(|e| anyhow!("could not verify spell proof: {}", e))?;
-
     Ok((spell, proof))
 }
 

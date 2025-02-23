@@ -132,6 +132,6 @@ fn decode_spell(txid: &str, request: &DecodeSpell) -> Result<Spell, StatusCode> 
 fn extract_spell(tx: &Transaction) -> Result<Spell, StatusCode> {
     match norm_spell_and_proof(&tx) {
         None => Err(StatusCode::NO_CONTENT),
-        Some((spell, _)) => Ok(Spell::denormalized(&spell)),
+        Some(spell) => Ok(Spell::denormalized(&spell)),
     }
 }
