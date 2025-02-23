@@ -17,7 +17,7 @@ use bitcoin::{
     Amount, FeeRate, OutPoint, ScriptBuf, TapLeafHash, TapSighashType, Transaction, TxIn, TxOut,
     Txid, Weight, Witness, XOnlyPublicKey,
 };
-use charms_spell_checker::NormalizedSpell;
+use charms_client::NormalizedSpell;
 use std::collections::BTreeMap;
 
 /// `add_spell` adds `spell` to `tx`:
@@ -200,12 +200,12 @@ fn append_witness_data(
     witness.push(control_block(public_key, script).serialize());
 }
 
-pub fn norm_spell_and_proof(tx: &Transaction) -> Option<NormalizedSpell> {
-    charms_spell_checker::tx::extract_and_verify_spell(&tx, SPELL_VK).ok()
+pub fn norm_spell(tx: &Transaction) -> Option<NormalizedSpell> {
+    charms_client::tx::extract_and_verify_spell(&tx, SPELL_VK).ok()
 }
 
 pub fn spell(tx: &Transaction) -> Option<Spell> {
-    match norm_spell_and_proof(tx) {
+    match norm_spell(tx) {
         Some(norm_spell) => Some(Spell::denormalized(&norm_spell)),
         None => None,
     }

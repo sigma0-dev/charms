@@ -1198,8 +1198,8 @@ dependencies = [
  "axum 0.8.1",
  "bitcoin",
  "bitcoincore-rpc",
+ "charms-client",
  "charms-data",
- "charms-spell-checker",
  "clap",
  "clap_complete",
  "hex",
@@ -1214,6 +1214,18 @@ dependencies = [
  "tracing",
  "tracing-forest",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "charms-client"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "bitcoin",
+ "charms-data",
+ "serde",
+ "sp1-primitives",
+ "sp1-verifier",
 ]
 
 [[package]]
@@ -1243,12 +1255,11 @@ dependencies = [
 name = "charms-spell-checker"
 version = "0.4.0"
 dependencies = [
- "anyhow",
  "bitcoin",
+ "charms-client",
  "charms-data",
  "serde",
  "sp1-primitives",
- "sp1-verifier",
  "sp1-zkvm",
 ]
 

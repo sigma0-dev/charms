@@ -1,4 +1,4 @@
-use crate::{cli::ServerConfig, spell::Spell, tx::norm_spell_and_proof};
+use crate::{cli::ServerConfig, spell::Spell, tx::norm_spell};
 use anyhow::Result;
 use axum::{
     body::Body,
@@ -130,7 +130,7 @@ fn decode_spell(txid: &str, request: &DecodeSpell) -> Result<Spell, StatusCode> 
 }
 
 fn extract_spell(tx: &Transaction) -> Result<Spell, StatusCode> {
-    match norm_spell_and_proof(&tx) {
+    match norm_spell(&tx) {
         None => Err(StatusCode::NO_CONTENT),
         Some(spell) => Ok(Spell::denormalized(&spell)),
     }

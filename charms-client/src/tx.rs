@@ -1,13 +1,12 @@
 use crate::{NormalizedSpell, Proof, CURRENT_VERSION, V0, V0_SPELL_VK};
 use anyhow::{anyhow, bail, ensure};
 use bitcoin::{
-    hashes::Hash,
+    hashes::{serde::Serialize, Hash},
     opcodes::all::{OP_ENDIF, OP_IF},
     script::{Instruction, PushBytes},
     TxIn,
 };
 use charms_data::{util, TxId, UtxoId};
-use serde::Serialize;
 use sp1_primitives::io::SP1PublicValues;
 use sp1_verifier::Groth16Verifier;
 

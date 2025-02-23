@@ -19,8 +19,8 @@ anyhow = { workspace = true }
 axum = { version = "0.8.1" }
 bitcoin = { workspace = true, features = ["rand", "rand-std"] }
 bitcoincore-rpc = { version = "0.19.0" }
+charms-client = { path = "./charms-client", version = "0.4.0" }
 charms-data = { path = "./charms-data", version = "0.4.0" }
-charms-spell-checker = { path = "charms-spell-checker", version = "0.4.0" }
 clap = { version = "4.5.30", features = ["derive"] }
 clap_complete = { version = "4.5.45" }
 hex = { workspace = true }
@@ -41,6 +41,7 @@ proptest-derive = { workspace = true }
 [workspace]
 members = [
     ".",
+    "charms-client",
     "charms-data",
     "charms-sdk",
     "charms-spell-checker",

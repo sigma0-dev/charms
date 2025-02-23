@@ -1,4 +1,5 @@
-use crate::{app::AppContractVK, NormalizedSpell, SpellProverInput};
+use crate::{app::AppContractVK, is_correct};
+use charms_client::{NormalizedSpell, SpellProverInput};
 use charms_data::{util, App};
 
 pub fn main() {
@@ -34,7 +35,12 @@ pub(crate) fn run(input: SpellProverInput) -> (String, NormalizedSpell) {
         .collect();
 
     // Check the spell that we're proving is correct.
-    assert!(spell.is_correct(&prev_txs, &app_contract_proofs, &self_spell_vk));
+    assert!(is_correct(
+        &spell,
+        &prev_txs,
+        &app_contract_proofs,
+        &self_spell_vk
+    ));
 
     eprintln!("Spell is correct!");
 

@@ -1,11 +1,11 @@
 use crate::{app, tx::add_spell, utils, SPELL_CHECKER_BINARY, SPELL_VK};
 use anyhow::{anyhow, ensure, Error};
 use bitcoin::{address::NetworkUnchecked, hashes::Hash, Address, Amount, FeeRate, OutPoint, Txid};
-use charms_data::{util, App, Charms, Data, Transaction, TxId, UtxoId, B32};
-pub use charms_spell_checker::{
-    NormalizedCharms, NormalizedSpell, NormalizedTransaction, Proof, SpellProverInput,
+pub use charms_client::{
+    to_tx, NormalizedCharms, NormalizedSpell, NormalizedTransaction, Proof, SpellProverInput,
     CURRENT_VERSION,
 };
+use charms_data::{util, App, Charms, Data, Transaction, TxId, UtxoId, B32};
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
 use std::{
@@ -298,7 +298,7 @@ pub fn prove(
     let (pk, vk) = client.setup(SPELL_CHECKER_BINARY);
     let mut stdin = SP1Stdin::new();
 
-    let prev_spells = charms_spell_checker::prev_spells(&prev_txs, SPELL_VK);
+    let prev_spells = charms_client::prev_spells(&prev_txs, SPELL_VK);
 
     let prover_input = SpellProverInput {
         self_spell_vk: vk.bytes32(),
@@ -317,7 +317,7 @@ pub fn prove(
 
     stdin.write_vec(input_vec);
 
-    let tx = norm_spell.to_tx(&prev_spells);
+    let tx = to_tx(&norm_spell, &prev_spells);
     let app_public_inputs = &norm_spell.app_public_inputs;
 
     app::Prover::new().prove(
