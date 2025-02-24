@@ -9,8 +9,8 @@ license.workspace = true
 
 [dependencies]
 bitcoin = { workspace = true, features = ["serde"] }
-charms-data = { path = "../charms-data", version = "0.4.0" }
-charms-client = { path = "../charms-client", version = "0.4.0" }
+charms-data = { path = "../charms-data", version = "0.4.1" }
+charms-client = { path = "../charms-client", version = "0.4.1" }
 serde = { workspace = true, features = ["derive"] }
 sp1-primitives = { workspace = true }
 sp1-zkvm = { workspace = true, features = ["verify"] }
