@@ -20,12 +20,7 @@ pub fn extract_and_verify_spell(
         bail!("transaction does not have inputs")
     };
 
-    let script_data = spell_tx_in
-        .witness
-        .nth(1)
-        .ok_or(anyhow!("no spell data in the last input's witness"))?;
-
-    let (spell, proof) = parse_spell_and_proof(script_data)?;
+    let (spell, proof) = parse_spell_and_proof(spell_tx_in)?;
 
     ensure!(
         &spell.tx.outs.len() <= &tx.output.len(),
@@ -66,9 +61,21 @@ fn spell_with_ins(spell: NormalizedSpell, spell_tx_ins: &[TxIn]) -> NormalizedSp
     spell
 }
 
-pub fn parse_spell_and_proof(script_data: &[u8]) -> anyhow::Result<(NormalizedSpell, Proof)> {
-    // Parse script_data into Script
-    let script = bitcoin::blockdata::script::Script::from_bytes(script_data);
+pub fn parse_spell_and_proof(spell_tx_in: &TxIn) -> anyhow::Result<(NormalizedSpell, Proof)> {
+    ensure!(
+        spell_tx_in
+            .witness
+            .taproot_control_block()
+            .ok_or(anyhow!("no control block"))?
+            .len()
+            == 33,
+        "the Taproot tree contains more than one leaf: only a single script is supported"
+    );
+
+    let script = spell_tx_in
+        .witness
+        .tapscript()
+        .ok_or(anyhow!("no spell data in the last input's witness"))?;
 
     let mut instructions = script.instructions();
 
