@@ -1,4 +1,4 @@
-use crate::{NormalizedSpell, Proof, CURRENT_VERSION, V0, V0_SPELL_VK};
+use crate::{NormalizedSpell, Proof, CURRENT_VERSION, V0, V0_SPELL_VK, V1, V1_SPELL_VK};
 use anyhow::{anyhow, bail, ensure};
 use bitcoin::{
     hashes::{serde::Serialize, Hash},
@@ -112,6 +112,7 @@ pub fn parse_spell_and_proof(spell_tx_in: &TxIn) -> anyhow::Result<(NormalizedSp
 fn vks(spell_version: u32, spell_vk: &str) -> anyhow::Result<(&str, &[u8])> {
     match spell_version {
         CURRENT_VERSION => Ok((spell_vk, *sp1_verifier::GROTH16_VK_BYTES)),
+        V1 => Ok((V1_SPELL_VK, *sp1_verifier::GROTH16_VK_BYTES)),
         V0 => Ok((V0_SPELL_VK, V0_GROTH16_VK_BYTES)),
         _ => bail!("unsupported spell version: {}", spell_version),
     }
