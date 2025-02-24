@@ -127,6 +127,10 @@ fn to_sp1_pv<T: Serialize>(spell_version: u32, t: &T) -> SP1PublicValues {
             // we commit to CBOR-encoded tuple `(spell_vk, n_spell)`
             pv.write_slice(util::write(t).unwrap().as_slice());
         }
+        V1 => {
+            // we commit to CBOR-encoded tuple `(spell_vk, n_spell)`
+            pv.write_slice(util::write(t).unwrap().as_slice());
+        }
         V0 => {
             // we used to commit to the tuple `(spell_vk, n_spell)`, which was serialized internally
             // by SP1

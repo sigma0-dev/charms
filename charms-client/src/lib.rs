@@ -10,7 +10,7 @@ pub mod tx;
 pub const V0: u32 = 0u32;
 /// Verification key for version `0` of the `charms-spell-checker` binary.
 pub const V0_SPELL_VK: &str = "0x00e9398ac819e6dd281f81db3ada3fe5159c3cc40222b5ddb0e7584ed2327c5d";
-/// Verification key for version `0` of the `charms-spell-checker` binary.
+/// Verification key for version `1` of the `charms-spell-checker` binary.
 pub const V1_SPELL_VK: &str = "0x009f38f590ebca4c08c1e97b4064f39e4cd336eea4069669c5f5170a38a1ff97";
 /// Version `1` of the protocol.
 pub const V1: u32 = 1u32;
