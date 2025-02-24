@@ -1,5 +1,7 @@
 [package]
 name = "charms-client"
+description = "Charms client library"
+
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
