@@ -1,4 +1,4 @@
-version: 1
+version: 2
 
 apps:
   $00: n/${app_id}/${app_vk}
