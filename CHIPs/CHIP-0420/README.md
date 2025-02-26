@@ -7,6 +7,8 @@ Authors:
 Created: 2025-02-25
 ---
 
+This proposal borrows ideas from Cardano CIP-0068 Datum Metadata Standard [1].
+
 A fungible token value in Charms is represented by a single unsigned integer. This is great as a compact representation
 of the token amount. A fungible token, as an asset, is fully defined by its App structure:
 
@@ -63,3 +65,7 @@ ref: ?<UtxoId>
 
 The above is, of course, not the complete set of fields for NFTs, but rather an extensible recommended
 minimum (recommended, but not required: all fields are optional).
+
+### References
+
+[1] Cardano CIP-0068 Datum Metadata Standard. https://github.com/cardano-foundation/CIPs/tree/master/CIP-0068
