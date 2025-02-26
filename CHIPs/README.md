@@ -1,3 +1,3 @@
-# Charms Improvement Proposals (ChIPs)
+# Charms Improvement Proposals (CHIPs)
 
-- ChIP-0420: [Token Metadata](./ChIP-0420)
+- [CHIP-0420](CHIP-0420): Token Metadata
