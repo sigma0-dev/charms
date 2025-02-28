@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    path::PathBuf,
     str::FromStr,
 };
 
@@ -366,26 +365,15 @@ $TOAD: 9
 pub fn prove_spell_tx(
     spell: Spell,
     tx: bitcoin::Transaction,
-    app_bins: Vec<PathBuf>,
+    binaries: BTreeMap<B32, Vec<u8>>,
     prev_txs: BTreeMap<Txid, bitcoin::Transaction>,
     funding_utxo: OutPoint,
     funding_utxo_value: u64,
     change_address: String,
     fee_rate: f64,
 ) -> anyhow::Result<[bitcoin::Transaction; 2]> {
-    let (mut norm_spell, app_private_inputs) = spell.normalized()?;
-    align_spell_to_tx(&mut norm_spell, &tx)?;
-
-    let app_prover = app::Prover::new();
-
-    let binaries = app_bins
-        .iter()
-        .map(|path| {
-            let binary = std::fs::read(path)?;
-            let vk_hash = app_prover.vk(&binary);
-            Ok((B32(vk_hash), binary))
-        })
-        .collect::<anyhow::Result<_>>()?;
+    let (norm_spell, app_private_inputs) = spell.normalized()?;
+    let norm_spell = align_spell_to_tx(norm_spell, &tx)?;
 
     let (norm_spell, proof) = prove(
         norm_spell,
@@ -418,10 +406,11 @@ pub fn prove_spell_tx(
     Ok(transactions)
 }
 
-fn align_spell_to_tx(
-    norm_spell: &mut NormalizedSpell,
+pub(crate) fn align_spell_to_tx(
+    norm_spell: NormalizedSpell,
     tx: &bitcoin::Transaction,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<NormalizedSpell> {
+    let mut norm_spell = norm_spell;
     let spell_ins = norm_spell.tx.ins.as_ref().ok_or(anyhow!("no inputs"))?;
 
     ensure!(
@@ -458,5 +447,5 @@ fn align_spell_to_tx(
         norm_spell.tx.ins.get_or_insert_with(Vec::new).push(utxo_id);
     }
 
-    Ok(())
+    Ok(norm_spell)
 }

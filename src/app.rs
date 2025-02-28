@@ -1,5 +1,5 @@
 use anyhow::ensure;
-use charms_data::{util, App, Data, Transaction, B32};
+use charms_data::{is_simple_transfer, util, App, Data, Transaction, B32};
 use sp1_prover::components::CpuProverComponents;
 use sp1_sdk::{HashableKey, ProverClient, SP1Proof, SP1ProofMode, SP1Stdin, SP1VerifyingKey};
 use std::{collections::BTreeMap, mem};
@@ -50,6 +50,7 @@ impl Prover {
                 eprintln!("app binary not present: {:?}", app);
                 continue;
             };
+            dbg!(app);
             let mut app_stdin = SP1Stdin::new();
             let empty = Data::empty();
             let w = app_private_inputs.get(app).unwrap_or(&empty);
@@ -61,9 +62,43 @@ impl Prover {
             let SP1Proof::Compressed(compressed_proof) = app_proof.proof else {
                 unreachable!()
             };
-            dbg!(app);
-            eprintln!("app proof generated!");
+            eprintln!("app proof generated! for {:?}", app);
             spell_stdin.write_proof(*compressed_proof, vk.vk.clone());
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn run_all(
+        &self,
+        app_binaries: &BTreeMap<B32, Vec<u8>>,
+        tx: &Transaction,
+        app_public_inputs: &BTreeMap<App, Data>,
+        app_private_inputs: BTreeMap<App, Data>,
+    ) -> anyhow::Result<()> {
+        for (app, x) in app_public_inputs {
+            let mut app_stdin = SP1Stdin::new();
+            let empty = Data::empty();
+            let w = app_private_inputs.get(app).unwrap_or(&empty);
+            app_stdin.write_vec(util::write(&(app, tx, x, w))?);
+            match app_binaries.get(&app.vk) {
+                Some(app_binary) => {
+                    let (committed_values, _report) =
+                        self.client.execute(app_binary, &app_stdin)?;
+
+                    let com: (App, Transaction, Data) =
+                        util::read(committed_values.to_vec().as_slice())?;
+                    ensure!(
+                        (&com.0, &com.1, &com.2) == (app, tx, x),
+                        "committed data mismatch"
+                    );
+                }
+                None => ensure!(is_simple_transfer(app, tx)),
+            }
+
+            dbg!(app);
+
+            eprintln!("app checked!");
         }
 
         Ok(())

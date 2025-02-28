@@ -116,9 +116,21 @@ pub struct SpellProveParams {
     fee_rate: f64,
 }
 
+#[derive(Args)]
+pub struct SpellCheckParams {
+    /// Path to spell source file (YAML/JSON).
+    #[arg(long, default_value = "/dev/stdin")]
+    spell: PathBuf,
+    /// Path to the apps' RISC-V binaries.
+    #[arg(long, value_delimiter = ',')]
+    app_bins: Vec<PathBuf>,
+}
+
 #[derive(Subcommand)]
 pub enum SpellCommands {
-    /// Prove a spell.
+    /// Check the spell is correct.
+    Check(#[command(flatten)] SpellCheckParams),
+    /// Prove the spell is correct.
     Prove(#[command(flatten)] SpellProveParams),
 }
 
@@ -204,6 +216,7 @@ pub async fn run() -> anyhow::Result<()> {
     match cli.command {
         Commands::Server(server_config) => server::server(server_config).await,
         Commands::Spell { command } => match command {
+            SpellCommands::Check(params) => spell::check(params),
             SpellCommands::Prove(params) => spell::prove(params),
         },
         Commands::Tx { command } => match command {

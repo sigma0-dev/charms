@@ -1,6 +1,4 @@
-use charms_data::{
-    nft_state_preserved, token_amounts_balanced, util, App, Data, Transaction, NFT, TOKEN,
-};
+use charms_data::{is_simple_transfer, util, App, Data, Transaction};
 use serde::{Deserialize, Serialize};
 use sp1_primitives::io::SP1PublicValues;
 use sp1_zkvm::lib::verify::verify_sp1_proof;
@@ -28,11 +26,7 @@ impl AppContractVK {
                 verify_sp1_proof(vk, &pv);
                 true
             }
-            None => match app.tag {
-                TOKEN => token_amounts_balanced(app, &tx),
-                NFT => nft_state_preserved(app, &tx),
-                _ => false,
-            },
+            None => is_simple_transfer(app, tx),
         }
     }
 }

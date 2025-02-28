@@ -1,5 +1,5 @@
 use crate::{
-    cli,
+    app, cli,
     cli::{WalletCastParams, WalletListParams},
     spell::{prove_spell_tx, KeyedCharms, Spell},
     tx,
@@ -181,7 +181,7 @@ fn get_tx(txid: &str) -> Result<Transaction> {
     Ok(tx)
 }
 
-const MIN_SATS: u64 = 1000;
+pub const MIN_SATS: u64 = 1000;
 
 pub fn cast(
     WalletCastParams {
@@ -217,14 +217,17 @@ pub fn cast(
 
     let tx = tx::from_spell(&spell);
 
-    let prev_txs = txs_by_txid(get_prev_txs(&tx)?)?;
+    let prev_txs = txs_by_txid(cli::tx::get_prev_txs(&tx)?)?;
     let funding_utxo_value = funding_utxo_value(&funding_utxo)?;
     let change_address = new_change_address()?;
+
+    let app_prover = app::Prover::new();
+    let binaries = cli::app::binaries_by_vk(&app_prover, app_bins)?;
 
     let [commit_tx, spell_tx] = prove_spell_tx(
         spell,
         tx,
-        app_bins,
+        binaries,
         prev_txs,
         funding_utxo,
         funding_utxo_value,
@@ -286,16 +289,4 @@ fn funding_utxo_value(utxo: &OutPoint) -> Result<u64> {
     );
     let cmd_out = Command::new("bash").args(&["-c", &cmd]).output()?;
     Ok(String::from_utf8(cmd_out.stdout)?.trim().parse()?)
-}
-
-fn get_prev_txs(tx: &Transaction) -> Result<Vec<String>> {
-    let cmd_output = Command::new("bash")
-        .args(&[
-            "-c", format!("bitcoin-cli decoderawtransaction {} | jq -r '.vin[].txid' | sort | uniq | xargs -I {{}} bitcoin-cli getrawtransaction {{}} | paste -sd, -", serialize_hex(tx)).as_str()
-        ])
-        .output()?;
-    Ok(String::from_utf8(cmd_output.stdout)?
-        .split(',')
-        .map(|s| s.trim().to_string())
-        .collect())
 }

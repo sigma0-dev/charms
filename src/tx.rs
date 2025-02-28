@@ -6,7 +6,6 @@ use crate::{
 use bitcoin::{
     self,
     absolute::LockTime,
-    consensus::encode::deserialize_hex,
     hashes::Hash,
     key::Secp256k1,
     secp256k1::{rand::thread_rng, schnorr, Keypair, Message},
@@ -211,14 +210,10 @@ pub fn spell(tx: &Transaction) -> Option<Spell> {
     }
 }
 
-pub fn txs_by_txid(prev_txs: Vec<String>) -> anyhow::Result<BTreeMap<Txid, Transaction>> {
+pub fn txs_by_txid(prev_txs: Vec<Transaction>) -> anyhow::Result<BTreeMap<Txid, Transaction>> {
     prev_txs
-        .iter()
-        .map(|prev_tx| {
-            let prev_tx = deserialize_hex::<Transaction>(prev_tx)?;
-
-            Ok((prev_tx.compute_txid(), prev_tx))
-        })
+        .into_iter()
+        .map(|prev_tx| Ok((prev_tx.compute_txid(), prev_tx)))
         .collect::<anyhow::Result<BTreeMap<_, _>>>()
 }
 

@@ -1,4 +1,4 @@
-use crate::{app, spell::Spell};
+use crate::{app, app::Prover, spell::Spell};
 use anyhow::{anyhow, ensure, Result};
 use charms_data::{Data, B32};
 use std::{
@@ -135,4 +135,19 @@ fn data_for_key(inputs: &BTreeMap<String, Data>, k: &String) -> Data {
         Some(v) => v.clone(),
         None => Data::empty(),
     }
+}
+
+pub fn binaries_by_vk(
+    app_prover: &Prover,
+    app_bins: Vec<PathBuf>,
+) -> Result<BTreeMap<B32, Vec<u8>>> {
+    let binaries: BTreeMap<B32, Vec<u8>> = app_bins
+        .iter()
+        .map(|path| {
+            let binary = std::fs::read(path)?;
+            let vk_hash = app_prover.vk(&binary);
+            Ok((B32(vk_hash), binary))
+        })
+        .collect::<Result<_>>()?;
+    Ok(binaries)
 }
