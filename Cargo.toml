@@ -50,7 +50,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-anyhow = { version = "1.0.96" }
+anyhow = { version = "1.0.97" }
 bitcoin = { version = "0.32.5" }
 ciborium = { version = "0.2.2" }
 ciborium-io = { version = "0.2.2" }
@@ -60,11 +60,11 @@ proptest-derive = { version = "0.5.1" }
 serde = { version = "1.0" }
 serde_json = { version = "1.0.140" }
 serde_yaml = { version = "0.9.34" }
-sp1-primitives = { version = "4.1.1" }
+sp1-primitives = { version = "4.1.2" }
 sp1-prover = { version = "4.1.2" }
-sp1-sdk = { version = "4.1.1" }
+sp1-sdk = { version = "4.1.2" }
 sp1-verifier = { version = "4.1.2" }
-sp1-zkvm = { version = "4.1.1" }
+sp1-zkvm = { version = "4.1.2" }
 test-strategy = { version = "0.4.0" }
 
 [profile.test]
